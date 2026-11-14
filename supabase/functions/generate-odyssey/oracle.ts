@@ -17,6 +17,9 @@ export interface OracleKeys {
   geocodingApiKey: string;
   /** Gemini model id. Defaults to DEFAULT_MODEL. */
   model?: string;
+  /** Override the API hosts. Only for tests against a mock server. */
+  llmBaseUrl?: string;
+  geocodingBaseUrl?: string;
 }
 
 export interface LatLng {
@@ -144,7 +147,8 @@ function outputText(interaction: unknown): string {
 }
 
 export async function askOracle(req: OracleRequest, keys: OracleKeys): Promise<LlmRoute> {
-  const res = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
+  const base = keys.llmBaseUrl ?? 'https://generativelanguage.googleapis.com';
+  const res = await fetch(`${base}/v1beta/interactions`, {
     method: 'POST',
     headers: {
       'x-goog-api-key': keys.llmApiKey,
@@ -195,18 +199,19 @@ export async function askOracle(req: OracleRequest, keys: OracleKeys): Promise<L
 /** Returns null when nothing is found. Throws only on auth/network problems. */
 export async function geocode(
   query: string,
-  apiKey: string,
+  keys: Pick<OracleKeys, 'geocodingApiKey' | 'geocodingBaseUrl'>,
   proximity?: LatLng,
 ): Promise<LatLng | null> {
   const params = new URLSearchParams({
     // API limit is 256 chars; semicolons are not allowed.
     q: query.replaceAll(';', ' ').slice(0, 256),
     limit: '1',
-    access_token: apiKey,
+    access_token: keys.geocodingApiKey,
   });
   if (proximity) params.set('proximity', `${proximity.lng},${proximity.lat}`);
 
-  const res = await fetch(`https://api.mapbox.com/search/searchbox/v1/forward?${params}`);
+  const base = keys.geocodingBaseUrl ?? 'https://api.mapbox.com';
+  const res = await fetch(`${base}/search/searchbox/v1/forward?${params}`);
   if (res.status === 401 || res.status === 403) {
     throw new Error(`Geocoding auth failed (${res.status}): ${(await res.text()).slice(0, 300)}`);
   }
@@ -280,8 +285,8 @@ export function filterOnRoute(
 export async function consultOracle(req: OracleRequest, keys: OracleKeys): Promise<OracleResult> {
   // Endpoints first: cheap, and there is no point asking the LLM if they fail.
   const [start, destination] = await Promise.all([
-    geocode(req.start, keys.geocodingApiKey),
-    geocode(req.destination, keys.geocodingApiKey),
+    geocode(req.start, keys),
+    geocode(req.destination, keys),
   ]);
   if (!start) throw new OracleError('endpoint_not_found', `Could not find the start: ${req.start}`);
   if (!destination) {
@@ -298,7 +303,7 @@ export async function consultOracle(req: OracleRequest, keys: OracleKeys): Promi
 
   const midpoint = { lat: (start.lat + destination.lat) / 2, lng: (start.lng + destination.lng) / 2 };
   const located = await Promise.all(
-    waypoints.map((s) => geocode(`${s.place_name}, ${s.city_region}`, keys.geocodingApiKey, midpoint)),
+    waypoints.map((s) => geocode(`${s.place_name}, ${s.city_region}`, keys, midpoint)),
   );
 
   const dropped: { place: string; reason: string }[] = [];
