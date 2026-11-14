@@ -1,7 +1,11 @@
-// Shared types. Mirror of the DB schema in supabase/migrations.
-// Change the migration and this file together.
+// Shared types. Mirror of the DB schema in supabase/migrations (snake_case,
+// same as Supabase rows). Change the migration and this file together, and
+// tell the team: every workstream imports from here.
 
 export type VisibilityMode = 'open' | 'fog';
+
+/** Who earns a cleared stage's Drachma: every crew member, or only the member whose arrival cleared it. */
+export type PointsMode = 'crew' | 'arriver';
 export type OdysseyStatus = 'forging' | 'lobby' | 'voyage' | 'complete';
 
 export interface Odyssey {
@@ -12,6 +16,8 @@ export interface Odyssey {
   start_name: string;
   destination_name: string;
   visibility_mode: VisibilityMode;
+  /** Chosen by the Captain at creation. */
+  points_mode: PointsMode;
   status: OdysseyStatus;
   /** `order` of the stage the crew is currently sailing toward. Starts at 1. */
   current_stage_order: number;
@@ -54,6 +60,11 @@ export interface LedgerEntry {
   points: number;
   reason: string;
   created_at: string;
+}
+
+export interface LatLng {
+  lat: number;
+  lng: number;
 }
 
 // ---------------------------------------------------------------------------
