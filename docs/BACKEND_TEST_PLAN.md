@@ -1,0 +1,175 @@
+# Backend test plan (Dev B)
+
+How to check that the Supabase schema, RPCs and the `generate-odyssey` Edge Function work, first on your machine and then on the hosted project.
+
+Work through the parts in order. Each step says what you should see. If a step fails, stop there; later steps depend on it.
+
+## What is already verified, and what is not
+
+| Area | Status |
+|---|---|
+| Schema, RLS, all RPCs | Passing locally: 75 database tests |
+| Full flow over HTTP (auth, join, fog, clears, Drachma, Realtime) | Passing locally in fog and open mode |
+| Edge Function (auth, validation, persistence, retry, cleanup on failure) | Passing locally against a **mock** LLM and geocoder |
+| Real Gemini call | **Not tested.** No key was available. Part 2 covers it. |
+| Real Mapbox geocoding | **Not tested.** Part 2 covers it. |
+| Anything on the hosted project | **Not tested.** Parts 3 and 4 cover it. |
+
+The two real API calls are the main risk. The request and response shapes were written from the current docs but have never run against the real services.
+
+## Before you start
+
+- Node 24: `nvm use 24`
+- Docker Desktop running (only for Part 1)
+- `supabase/functions/.env` (gitignored) containing:
+
+```
+LLM_API_KEY=<Gemini API key from https://aistudio.google.com/apikey>
+GEOCODING_API_KEY=<Mapbox access token>
+NEXT_PUBLIC_SUPABASE_URL=<already there>
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<already there>
+```
+
+The test scripts accept the `NEXT_PUBLIC_` names. The Expo app will need the same two values as `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` in the root `.env`.
+
+## Part 1: Local (about 3 minutes)
+
+This repeats what has already passed, so you know your machine is set up.
+
+```
+npx supabase start        # skip if it is already running
+npx supabase db reset     # applies all 5 migrations
+npx supabase test db
+```
+
+Expect `Files=5, Tests=75` and `Result: PASS`.
+
+```
+node supabase/scratch/e2e.ts --local
+node supabase/scratch/e2e.ts --local --mode=open
+```
+
+Expect `ALL CHECKS PASSED` both times. These use the demo route, so no API keys are involved.
+
+Do not test the Edge Function with real keys locally on this network. The local function container cannot make outbound HTTPS calls here (it does not trust the network's TLS certificate). Use Part 2 and Part 4 for that.
+
+## Part 2: The Oracle with real keys (about 2 minutes)
+
+This runs the exact pipeline the Edge Function uses, from Node, without Supabase.
+
+```
+node --env-file=supabase/functions/.env supabase/scratch/try-oracle.ts
+```
+
+Expect a themed title, then 3 to 7 stages, ending with `OK in Ns`.
+
+Check these by eye:
+
+1. Every stage is a real place, and the coordinates are in the right part of Texas. Paste one or two into a maps app.
+2. The last stage is Big Bend and shows `[250 dr]`; the others show `[100 dr]`.
+3. The `+N km` legs look like a sensible drive, with no jump backwards.
+4. At most one or two `dropped:` lines. Several drops on every run means the model is inventing places.
+5. It finishes in under about 15 seconds.
+
+Then try two routes of your own, including the one you plan to demo:
+
+```
+node --env-file=supabase/functions/.env supabase/scratch/try-oracle.ts "Austin, TX" "Marfa, TX"
+```
+
+If it fails:
+
+| Output | Meaning | What to do |
+|---|---|---|
+| `[llm_failed] LLM returned 400` | Gemini rejected the request body | Send me the full message; the request shape needs adjusting |
+| `[llm_failed] LLM returned 401/403` | Bad Gemini key | Check `LLM_API_KEY` |
+| `[llm_failed] LLM returned 404` | Model id not available to your key | Add `LLM_MODEL=gemini-3.1-flash-lite` to the env file and retry |
+| `[llm_failed] LLM returned 429` | Free-tier rate limit | Wait a minute |
+| `[llm_bad_output]` | The response layout differs from what the code reads | Send me the full message |
+| `Geocoding auth failed` | Bad Mapbox token | Check `GEOCODING_API_KEY` |
+| `[endpoint_not_found]` | Mapbox could not find the start or destination | Try a more specific name |
+| `[too_few_stages]` | Too many stages failed to geocode | Run again; if it repeats, try a stronger model with `LLM_MODEL` |
+
+The default model is `gemini-2.5-flash-lite`, the cheapest one. If routes are dull or often contain fake places, set `LLM_MODEL=gemini-3.8-flash` and compare.
+
+## Part 3: Set up the hosted project (about 5 minutes, once)
+
+```
+npx supabase login
+npx supabase link --project-ref <your project ref>
+npx supabase db push
+```
+
+`db push` lists the 5 migrations and asks for confirmation. Expect all 5 applied with no errors.
+
+Then:
+
+1. In the dashboard, open Authentication, then Sign In / Providers, and turn on **Allow anonymous sign-ins**.
+2. Set the function secrets and deploy:
+
+```
+npx supabase secrets set --env-file supabase/functions/.env
+npx supabase functions deploy generate-odyssey
+```
+
+The secrets command also uploads the two `NEXT_PUBLIC_` values. They are public values, so this is harmless.
+
+## Part 4: Hosted end to end (about 3 minutes)
+
+First without the Oracle, to prove the database side:
+
+```
+node --env-file=supabase/functions/.env supabase/scratch/e2e.ts
+```
+
+Expect `ALL CHECKS PASSED`. If the first check fails with "Anonymous sign-in failed", step 1 of Part 3 was missed.
+
+Then with the real Oracle, in both modes:
+
+```
+node --env-file=supabase/functions/.env supabase/scratch/e2e.ts --oracle
+node --env-file=supabase/functions/.env supabase/scratch/e2e.ts --oracle --mode=open
+```
+
+Expect `ALL CHECKS PASSED`, with the create step taking a few seconds.
+
+If the create step fails:
+
+| Response | Meaning |
+|---|---|
+| `not_configured` | Secrets are missing, or the function cannot find its service key. Run `npx supabase functions logs generate-odyssey` and send me the output. |
+| `not_authenticated` | The function could not verify the user token. Send me the logs. |
+| `llm_failed`, `llm_bad_output`, `too_few_stages` | Same causes as Part 2; the detail is in the function logs. |
+
+Each run leaves three anonymous users and one Odyssey behind. To clear test data from the hosted project, run this in the SQL editor. It deletes **every** Odyssey, so do not run it once real ones exist:
+
+```sql
+delete from public.odysseys;
+```
+
+## Part 5: Manual checks in the dashboard (about 5 minutes)
+
+Run `e2e.ts --oracle` once more, then look in the Table Editor.
+
+1. `odysseys`: the newest row has status `complete`, a real title from the Oracle, and a 6 character join code with no `0`, `O`, `1`, `I` or `L`.
+2. `stages`: orders run 1 to N with no gaps, every row has `cleared_at` and `cleared_by`, and the last one has 250 points.
+3. `points_ledger`: two rows per stage (one per member), and the last stage's rows have reason `ithaca_reached`.
+4. No `odysseys` row is stuck in status `forging`.
+5. Database, then Publications, then `supabase_realtime`: `odysseys`, `members` and `points_ledger` are on; `stages` is off.
+
+## Part 6: Demo readiness
+
+Do this on the day, on the venue network.
+
+1. Run Part 2 with your demo prompt three times. All three should give a route you would be happy to show.
+2. Run `e2e.ts --oracle` against hosted once.
+3. Confirm the fallback: `e2e.ts` without `--oracle` passes. That is the path the app takes through `create_demo_odyssey` if the Oracle fails on stage.
+
+## What to tell Dev A and Dev C
+
+- All call shapes are in `src/lib/types.ts`.
+- Read stages only through `get_visible_stages`. A direct select on `stages` is denied.
+- `stages` sends no Realtime events. Subscribe to `odysseys`; it changes on every clear and on set sail. Refetch visible stages when it does.
+- The Captain must be in the crew to clear stages. Either send `nickname` and `avatar_id` to `generate-odyssey`, or call `join_odyssey` with the Captain's own code.
+- `clear_stage` returns a `result` field for normal outcomes (`too_far`, `already_cleared`, and so on). It only raises an error for bugs such as not being in the crew.
+- `create_demo_odyssey` works today on the hosted project without any API keys.
