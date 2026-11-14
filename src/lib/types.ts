@@ -95,3 +95,50 @@ export interface GenerateOdysseyError {
     | 'internal';
   message: string;
 }
+
+// ---------------------------------------------------------------------------
+// RPCs. Call with supabase.rpc(name, params). Parameter names are part of the
+// contract. A failed RPC has `error.message` set to one of RpcErrorMessage.
+// ---------------------------------------------------------------------------
+
+/** `get_visible_stages({ p_odyssey_id })`. The only way to read stages. */
+export interface VisibleStages {
+  /** Real number of stages, even when fog hides some of them. */
+  total_stages: number;
+  /** Open: all. Fog: cleared stages plus the current target. Complete: all. */
+  stages: Stage[];
+}
+
+/** `clear_stage({ p_stage_id, p_lat, p_lng, p_manual })`. */
+export interface ClearStageParams {
+  p_stage_id: string;
+  /** Required unless p_manual is true. */
+  p_lat?: number;
+  p_lng?: number;
+  /** "We have arrived" fallback: skips the distance check. */
+  p_manual?: boolean;
+}
+
+export type ClearStageOutcome =
+  | 'cleared' // this call cleared the stage
+  | 'already_cleared' // someone got there first; nothing changed
+  | 'not_sailing' // odyssey is not in status `voyage`
+  | 'not_current' // stage is not the crew's current target
+  | 'too_far'; // position is outside the stage radius
+
+export interface ClearStageResult {
+  result: ClearStageOutcome;
+  stage_id: string;
+  /** Metres from the stage. Null for manual arrivals. */
+  distance_m: number | null;
+  /** Drachma each crew member received from this call (0 unless `cleared`). */
+  points_awarded: number;
+  odyssey_status: OdysseyStatus;
+  current_stage_order: number;
+}
+
+export type RpcErrorMessage =
+  | 'not_authenticated'
+  | 'not_crew'
+  | 'stage_not_found'
+  | 'position_required';
