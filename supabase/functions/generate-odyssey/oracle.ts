@@ -59,9 +59,10 @@ export class OracleError extends Error {
   }
 }
 
-// Cheapest Gemini text model as of 2026-11 ($0.10 in / $0.40 out per 1M tokens,
-// has a free tier). Override with the LLM_MODEL secret if route quality is poor.
-export const DEFAULT_MODEL = 'gemini-2.5-flash-lite';
+// Cheapest Gemini text model open to new API keys as of 2026-11 ($0.25 in /
+// $1.50 out per 1M tokens, has a free tier). gemini-2.5-flash-lite is cheaper
+// but returns 404 for new accounts. Override with the LLM_MODEL secret.
+export const DEFAULT_MODEL = 'gemini-3.1-flash-lite';
 const MIN_STAGES = 3;
 const STAGE_POINTS = 100;
 const ITHACA_POINTS = 250;
@@ -113,6 +114,7 @@ Given a start, a destination, and the crew's wishes, plan the voyage as a series
 
 Rules:
 - Return 5 to 7 stages in travel order, each one further along the drive from start to destination. No backtracking and no big detours.
+- Spread the stages along the whole drive. Do not cluster them near the start or leave one very long empty stretch.
 - The final stage MUST be the destination itself.
 - Do not include the start as a stage.
 - Every stage must be a real, specific place that exists today and can be found by name in a maps search: a named restaurant, landmark, park, museum, viewpoint, or town. Never invent places. Prefer well-known places over obscure ones.
@@ -329,7 +331,8 @@ export async function consultOracle(req: OracleRequest, keys: OracleKeys): Promi
     const isIthaca = i === all.length - 1;
     return {
       order: i + 1,
-      name: `${c.stage.place_name}, ${c.stage.city_region}`,
+      // Ithaca keeps the Captain's own wording for the destination.
+      name: isIthaca ? req.destination : `${c.stage.place_name}, ${c.stage.city_region}`,
       title: c.stage.title,
       lore: c.stage.lore,
       lat: c.lat,
