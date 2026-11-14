@@ -1,0 +1,113 @@
+{
+  "palette": {
+    "S": "#f5ebce",
+    "w": "#6a4225",
+    "b": "#c85b32",
+    "g": "#f0bb3b",
+    "t": "#195c2e",
+    "L": "#419547",
+    "s": "#dfc48b",
+    "f": "#c1e6ed",
+    "k": "#291508",
+    "F": "#e5b28a",
+    "m": "#c85b32",
+    "h": "#f0bb3b",
+    "c": "#c85b32",
+    "l": "#419547",
+    "o": "#004678",
+    "r": "#e0ded7",
+    "R": "#948f82"
+  },
+  "colors": {
+    "ocean-deep": "#021630",
+    "ocean": "#004678",
+    "ocean-light": "#007daa",
+    "foam": "#c1e6ed",
+    "sand": "#dfc48b",
+    "parchment": "#f5ebce",
+    "parchment-dark": "#d9c099",
+    "gold": "#f0bb3b",
+    "gold-dark": "#b17000",
+    "terracotta": "#c85b32",
+    "wood": "#6a4225",
+    "leaf": "#419547",
+    "leaf-dark": "#195c2e",
+    "stone": "#e0ded7",
+    "stone-dark": "#948f82",
+    "skin": "#e5b28a",
+    "ink": "#291508",
+    "fog": "#c3d0da",
+    "muted-foreground": "#584332",
+    "destructive": "#cc2827"
+  },
+  "SHIP": [
+    ".......w........",
+    ".......wSS......",
+    ".......wSSS.....",
+    ".......wSSSS....",
+    ".......wSgSSS...",
+    ".......wSSSSSS..",
+    ".......wSSSSSSS.",
+    ".......w........",
+    "bbbbbbbbbbbbbbbb",
+    ".bgbbgbbgbbgbbb.",
+    "..bbbbbbbbbbbb.."
+  ],
+  "ISLAND": [
+    "......tLt.......",
+    ".....tLLLt......",
+    "....tLLLLLt.....",
+    ".......w........",
+    ".......w...rr...",
+    "...ssssssssRrs..",
+    ".ssssssssssssss.",
+    "ffssssssssssssff",
+    ".ffffffffffffff."
+  ],
+  "ITHACA": [
+    "......ggg.......",
+    ".....gRRRg......",
+    "....rrrrrrr.....",
+    "....r.r.r.r.....",
+    "....r.r.r.r.tLt.",
+    "...rrrrrrrrrtLLt",
+    "...ssssssssss.w.",
+    ".ssssssssssssss.",
+    "ffssssssssssssff",
+    ".ffffffffffffff."
+  ],
+  "FACE": [
+    ".FFFFFF.",
+    ".FkFFkF.",
+    ".FFFFFF.",
+    "..FmmF..",
+    "...FF..."
+  ],
+  "HATS": [
+    [
+      "...cc...",
+      ".hhhhhh.",
+      "hhhhhhhh"
+    ],
+    [
+      "........",
+      ".l.ll.l.",
+      "lwwwwwwl"
+    ],
+    [
+      "..oooo..",
+      ".oooooo.",
+      "SSSSSSSS"
+    ],
+    [
+      "..R..R..",
+      ".rrrrrr.",
+      ".rRrrRr."
+    ],
+    [
+      "h.h.h.h.",
+      "hhhhhhhh",
+      "hbhhhbhh"
+    ]
+  ]
+}
