@@ -149,6 +149,15 @@ export interface SetSailResult {
   status: OdysseyStatus;
 }
 
+/** One row per crew member from `get_points_summary({ p_odyssey_id })`, highest total first. */
+export interface PointsSummaryRow {
+  member_id: string;
+  nickname: string;
+  avatar_id: string;
+  total_points: number;
+  stages_cleared: number;
+}
+
 export type RpcErrorMessage =
   | 'not_authenticated'
   | 'not_crew'
