@@ -8,12 +8,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { currentTarget, distanceToTargetM } from '@/features/location/geofence';
 import { createGpsSource, type GpsStartResult, type GpsSource } from '@/features/location/gpsSource';
 import { createSimulateSource, type LocationSource, type SimulateSource } from '@/features/location/source';
-import { useLocation } from '@/features/location/useLocation';
-import { startArrivalWatcher } from '@/features/location/watcher';
+import { useArrivalWatcher, useManualArrival } from '@/features/location/useArrival';
+import { useLocation, useSourceLocation } from '@/features/location/useLocation';
+import { useCrew } from '@/features/crew/useCrew';
 import type { ClearStageResult, OdysseyBackend } from '@/features/odyssey/backend';
 import { createMockBackend } from '@/features/odyssey/mockBackend';
-import { useVoyage } from '@/features/odyssey/useVoyage';
-import { totalsByMember } from '@/features/points/totals';
+import { useOdyssey } from '@/features/odyssey/useOdyssey';
+import { useVisibleStages } from '@/features/odyssey/useVisibleStages';
+import { VoyageProvider } from '@/features/odyssey/VoyageProvider';
+import { usePoints } from '@/features/points/usePoints';
 import { offsetLatLng } from '@/lib/geo';
 import { mockMembers, mockOdyssey, mockStages, mockStart } from '@/lib/mock';
 import type { LatLng, PointsMode, Stage, VisibilityMode } from '@/lib/types';
@@ -73,15 +76,16 @@ interface GpsInfo {
   source: GpsSource;
 }
 
-/** The voyage UI for one backend/source pair. Starts the arrival watcher and stops it on unmount. */
-function VoyageView({
-  backend,
-  source,
-  kind,
-  pointsMode,
-  gps,
-  sim,
-}: {
+/** The voyage UI for one backend/source pair, wrapped in the VoyageProvider the hooks read from. */
+function VoyageView(props: VoyageViewProps) {
+  return (
+    <VoyageProvider backend={props.backend} source={props.source} memberId={ME}>
+      <VoyageBody {...props} />
+    </VoyageProvider>
+  );
+}
+
+interface VoyageViewProps {
   backend: OdysseyBackend;
   source: LocationSource;
   kind: RunKind;
@@ -90,39 +94,45 @@ function VoyageView({
   gps?: GpsInfo;
   /** Present in simulate mode: the only way to render Sail and Jump. */
   sim?: SimulateSource;
-}) {
+}
+
+/** Starts the arrival watcher (stopped on unmount) and renders the voyage. */
+function VoyageBody({
+  kind,
+  pointsMode,
+  gps,
+  sim,
+}: VoyageViewProps) {
   const [event, setEvent] = useState<string>(gps === undefined ? t.idle : t.planted);
 
-  useEffect(() => {
-    return startArrivalWatcher({
-      source,
-      backend,
-      odysseyId: mockOdyssey.id,
-      memberId: ME,
-      onResult: (r) => setEvent(describe(r, pointsMode)),
-    });
-  }, [backend, source, pointsMode]);
+  useArrivalWatcher(mockOdyssey.id, (r) => setEvent(describe(r, pointsMode)));
 
-  const voyage = useVoyage(backend, mockOdyssey.id);
-  const pos = useLocation(source);
+  const odyssey = useOdyssey(mockOdyssey.id);
+  const stages = useVisibleStages(mockOdyssey.id);
+  const members = useCrew(mockOdyssey.id);
+  const points = usePoints(mockOdyssey.id);
+  const pos = useLocation();
+  const arrive = useManualArrival(mockOdyssey.id);
 
-  if (voyage === null) return <Text style={styles.text}>{t.loading}</Text>;
+  if (odyssey === null || stages === null || members === null || points === null) {
+    return <Text style={styles.text}>{t.loading}</Text>;
+  }
 
-  const target = currentTarget(voyage.stages);
-  const complete = voyage.odyssey.status === 'complete';
-  const distance = pos === null ? null : distanceToTargetM(pos, voyage.stages);
-  const totals = totalsByMember(voyage.ledger);
-  const fogged = voyage.odyssey.visibility_mode === 'fog';
+  const target = currentTarget(stages);
+  const complete = odyssey.status === 'complete';
+  const distance = pos === null ? null : distanceToTargetM(pos, stages);
+  const totals = points.totals;
+  const fogged = odyssey.visibility_mode === 'fog';
   const accuracy = gps?.source.getAccuracyM() ?? null;
 
   return (
     <>
       <Text style={styles.heading}>
-        {voyage.odyssey.title} ({kind === 'gps' ? t.modeGps : fogged ? t.modeFog : t.modeOpen})
+        {odyssey.title} ({kind === 'gps' ? t.modeGps : fogged ? t.modeFog : t.modeOpen})
       </Text>
 
       <View style={styles.card}>
-        {voyage.stages.map((s) => (
+        {stages.map((s) => (
           <View key={s.id} style={styles.row}>
             <Text style={[styles.text, s.cleared_at !== null && styles.cleared, s.id === target?.id && styles.target]}>
               {s.cleared_at !== null ? '✓' : s.id === target?.id ? '➤' : '·'} {s.order}. {s.title}
@@ -174,15 +184,13 @@ function VoyageView({
         disabled={target === null}
         onPress={() => {
           if (target === null) return;
-          void backend
-            .clearStage({ odysseyId: mockOdyssey.id, stageId: target.id, memberId: ME, position: pos, manual: true })
-            .then((r) => setEvent(describe(r, pointsMode)));
+          void arrive(target.id).then((r) => setEvent(describe(r, pointsMode)));
         }}
       />
 
       <View style={styles.card}>
         <Text style={styles.text}>{t.crew}</Text>
-        {voyage.members.map((m) => (
+        {members.map((m) => (
           <Text key={m.id} style={styles.sub}>
             {m.nickname}: {totals[m.id] ?? 0}
           </Text>
@@ -205,7 +213,7 @@ function GpsVoyage({ pointsMode }: { pointsMode: PointsMode }) {
   const [source] = useState(() => createGpsSource());
   const [permission, setPermission] = useState<GpsStartResult | null>(null);
   const [planted, setPlanted] = useState<{ n: number; backend: OdysseyBackend } | null>(null);
-  const fix = useLocation(source);
+  const fix = useSourceLocation(source);
 
   useEffect(() => {
     let active = true;
@@ -220,7 +228,7 @@ function GpsVoyage({ pointsMode }: { pointsMode: PointsMode }) {
   // "We have arrived" still has stages.
   const failed = permission === 'denied' || permission === 'error';
   const origin = fix ?? (failed ? mockStart : null);
-  // useLocation re-renders on every new fix and the source sets accuracy before emitting, so this is never stale.
+  // useSourceLocation re-renders on every new fix and the source sets accuracy before emitting, so this is never stale.
   const accuracy = source.getAccuracyM();
   const gateClosed = fix !== null && (accuracy === null || accuracy > MAX_PLANT_ACCURACY_M);
 
