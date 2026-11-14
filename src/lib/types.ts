@@ -3,6 +3,9 @@
 
 export type VisibilityMode = 'open' | 'fog';
 
+// Who earns a cleared stage's Drachma: `crew` = every member, `arriver` = only the member whose arrival cleared it.
+export type PointsMode = 'crew' | 'arriver';
+
 export type OdysseyStatus = 'forging' | 'lobby' | 'voyage' | 'complete';
 
 export interface Odyssey {
@@ -13,6 +16,7 @@ export interface Odyssey {
   start_name: string;
   destination_name: string;
   visibility_mode: VisibilityMode;
+  points_mode: PointsMode; // chosen by the Captain at creation
   status: OdysseyStatus;
   current_stage_order: number;
 }

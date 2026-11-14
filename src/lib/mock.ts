@@ -13,6 +13,7 @@ export const mockOdyssey: Odyssey = {
   start_name: 'Mumbai',
   destination_name: 'Panaji, Goa',
   visibility_mode: 'fog',
+  points_mode: 'crew',
   status: 'voyage',
   current_stage_order: 1,
 };

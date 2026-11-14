@@ -16,15 +16,19 @@ import { useVoyage } from '@/features/odyssey/useVoyage';
 import { totalsByMember } from '@/features/points/totals';
 import { offsetLatLng } from '@/lib/geo';
 import { mockMembers, mockOdyssey, mockStages, mockStart } from '@/lib/mock';
-import type { LatLng, Stage, VisibilityMode } from '@/lib/types';
+import type { LatLng, PointsMode, Stage, VisibilityMode } from '@/lib/types';
 import { colors } from '@/theme/colors';
 import { copy } from '@/theme/copy';
 
 const t = copy.debug;
 const ME = mockMembers[0].id;
 
-function describe(result: ClearStageResult): string {
-  if (result.status === 'cleared') return t.cleared(result.stage.name, result.stage.points);
+function describe(result: ClearStageResult, pointsMode: PointsMode): string {
+  if (result.status === 'cleared') {
+    return pointsMode === 'arriver'
+      ? t.clearedArriver(result.stage.name, result.stage.points, mockMembers[0].nickname)
+      : t.cleared(result.stage.name, result.stage.points);
+  }
   if (result.status === 'already_cleared') return t.alreadyCleared(result.stage.name);
   return t.rejected(result.reason);
 }
@@ -74,12 +78,14 @@ function VoyageView({
   backend,
   source,
   kind,
+  pointsMode,
   gps,
   sim,
 }: {
   backend: OdysseyBackend;
   source: LocationSource;
   kind: RunKind;
+  pointsMode: PointsMode;
   /** Present in Real GPS mode. */
   gps?: GpsInfo;
   /** Present in simulate mode: the only way to render Sail and Jump. */
@@ -93,9 +99,9 @@ function VoyageView({
       backend,
       odysseyId: mockOdyssey.id,
       memberId: ME,
-      onResult: (r) => setEvent(describe(r)),
+      onResult: (r) => setEvent(describe(r, pointsMode)),
     });
-  }, [backend, source]);
+  }, [backend, source, pointsMode]);
 
   const voyage = useVoyage(backend, mockOdyssey.id);
   const pos = useLocation(source);
@@ -170,7 +176,7 @@ function VoyageView({
           if (target === null) return;
           void backend
             .clearStage({ odysseyId: mockOdyssey.id, stageId: target.id, memberId: ME, position: pos, manual: true })
-            .then((r) => setEvent(describe(r)));
+            .then((r) => setEvent(describe(r, pointsMode)));
         }}
       />
 
@@ -186,14 +192,16 @@ function VoyageView({
   );
 }
 
-function SimulateVoyage({ mode }: { mode: VisibilityMode }) {
-  const [backend] = useState(() => createMockBackend({ odyssey: { ...mockOdyssey, visibility_mode: mode } }));
+function SimulateVoyage({ mode, pointsMode }: { mode: VisibilityMode; pointsMode: PointsMode }) {
+  const [backend] = useState(() =>
+    createMockBackend({ odyssey: { ...mockOdyssey, visibility_mode: mode, points_mode: pointsMode } }),
+  );
   const [source] = useState(() => createSimulateSource({ start: mockStart, stepMs: 250, steps: 12 }));
   useEffect(() => () => source.stop(), [source]);
-  return <VoyageView backend={backend} source={source} sim={source} kind={mode} />;
+  return <VoyageView backend={backend} source={source} sim={source} kind={mode} pointsMode={pointsMode} />;
 }
 
-function GpsVoyage() {
+function GpsVoyage({ pointsMode }: { pointsMode: PointsMode }) {
   const [source] = useState(() => createGpsSource());
   const [permission, setPermission] = useState<GpsStartResult | null>(null);
   const [planted, setPlanted] = useState<{ n: number; backend: OdysseyBackend } | null>(null);
@@ -218,7 +226,7 @@ function GpsVoyage() {
 
   const plant = (unit: [number, number]): void => {
     if (origin === null) return;
-    const odyssey = { ...mockOdyssey, visibility_mode: 'fog' as const, status: 'voyage' as const, current_stage_order: 1 };
+    const odyssey = { ...mockOdyssey, visibility_mode: 'fog' as const, points_mode: pointsMode, status: 'voyage' as const, current_stage_order: 1 };
     const backend = createMockBackend({ odyssey, stages: plantStages(origin, unit) });
     setPlanted({ n: (planted?.n ?? 0) + 1, backend });
   };
@@ -243,26 +251,33 @@ function GpsVoyage() {
         </View>
       )}
       {planted !== null && (
-        <VoyageView key={planted.n} backend={planted.backend} source={source} kind="gps" gps={{ source }} />
+        <VoyageView key={planted.n} backend={planted.backend} source={source} kind="gps" pointsMode={pointsMode} gps={{ source }} />
       )}
     </>
   );
 }
 
 export default function Debug() {
-  const [run, setRun] = useState<{ n: number; kind: RunKind }>({ n: 0, kind: 'fog' });
-  const restart = (kind: RunKind) => setRun({ n: run.n + 1, kind });
+  const [run, setRun] = useState<{ n: number; kind: RunKind; pointsMode: PointsMode }>({
+    n: 0,
+    kind: 'fog',
+    pointsMode: 'crew',
+  });
+  const restart = (kind: RunKind) => setRun({ ...run, n: run.n + 1, kind });
+  const flipRule = () =>
+    setRun({ ...run, n: run.n + 1, pointsMode: run.pointsMode === 'crew' ? 'arriver' : 'crew' });
   return (
     <SafeAreaView style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content}>
         {run.kind === 'gps' ? (
-          <GpsVoyage key={run.n} />
+          <GpsVoyage key={run.n} pointsMode={run.pointsMode} />
         ) : (
-          <SimulateVoyage key={run.n} mode={run.kind} />
+          <SimulateVoyage key={run.n} mode={run.kind} pointsMode={run.pointsMode} />
         )}
         <Button label={t.restartFog} onPress={() => restart('fog')} />
         <Button label={t.restartOpen} onPress={() => restart('open')} />
         <Button label={t.restartGps} onPress={() => restart('gps')} />
+        <Button label={run.pointsMode === 'crew' ? t.pointsCrew : t.pointsArriver} onPress={flipRule} />
       </ScrollView>
     </SafeAreaView>
   );

@@ -26,6 +26,10 @@ export const copy = {
     idle: 'Anchored at the start.',
     sailing: (name: string) => `Sailing to ${name}...`,
     cleared: (name: string, points: number) => `Cleared ${name}. +${points} Drachma each.`,
+    clearedArriver: (name: string, points: number, who: string | null) =>
+      `Cleared ${name}. +${points} Drachma to ${who ?? 'the one who arrived'}.`,
+    pointsCrew: 'Drachma: whole crew',
+    pointsArriver: 'Drachma: arriver only',
     alreadyCleared: (name: string) => `${name} was already cleared.`,
     rejected: (reason: string) => `The gods refuse: ${reason}`,
     restartGps: 'Restart with real GPS',

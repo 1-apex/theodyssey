@@ -42,8 +42,10 @@ export function createMockBackend(seed: MockBackendSeed = {}): OdysseyBackend {
       stage.cleared_at = new Date().toISOString();
       stage.cleared_by = memberId;
 
-      // Every crew member earns the stage's Drachma.
-      for (const m of members) {
+      // `crew`: every member earns the stage's Drachma. `arriver`: only the member who cleared it
+      // (none if that id is not a member; the stage still clears).
+      const earners = odyssey.points_mode === 'arriver' ? members.filter((m) => m.id === memberId) : members;
+      for (const m of earners) {
         ledger.push({
           id: `ledger-${ledger.length + 1}`,
           odyssey_id: odyssey.id,

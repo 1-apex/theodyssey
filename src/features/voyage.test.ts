@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { haversineM, isWithinStage, offsetLatLng } from '../lib/geo';
-import { mockMembers, mockStages, mockStart } from '../lib/mock';
+import { mockMembers, mockOdyssey, mockStages, mockStart } from '../lib/mock';
 import { checkArrival, currentTarget, distanceToTargetM } from './location/geofence';
 import { createSimulateSource } from './location/source';
 import { startArrivalWatcher } from './location/watcher';
@@ -167,4 +167,59 @@ test('offsetLatLng: 100 m north and east measure as 100 m', () => {
   assert.ok(Math.abs(haversineM(p, offsetLatLng(p, 100, 0)) - 100) < 1);
   assert.ok(Math.abs(haversineM(p, offsetLatLng(p, 0, 100)) - 100) < 1);
   assert.ok(Math.abs(haversineM(p, offsetLatLng(p, -100, -100)) - 141.42) < 1.5);
+});
+
+const arriverBackend = () =>
+  createMockBackend({ odyssey: { ...mockOdyssey, points_mode: 'arriver' } });
+
+test('crew mode (default) gives every member the points', async () => {
+  const backend = createMockBackend();
+  assert.equal((await backend.getOdyssey(ID)).points_mode, 'crew');
+  await backend.clearStage({ odysseyId: ID, stageId: stageAt(0).id, memberId: mockMembers[1].id, position: stageAt(0) });
+  const totals = totalsByMember(await backend.getLedger(ID));
+  for (const m of mockMembers) assert.equal(totals[m.id], 100);
+});
+
+test('arriver mode: only the arriving member earns the points', async () => {
+  const backend = arriverBackend();
+  const result = await backend.clearStage({ odysseyId: ID, stageId: stageAt(0).id, memberId: mockMembers[1].id, position: stageAt(0) });
+  assert.equal(result.status, 'cleared');
+  const ledger = await backend.getLedger(ID);
+  assert.equal(ledger.length, 1);
+  assert.equal(memberTotal(ledger, mockMembers[1].id), 100);
+  assert.equal(memberTotal(ledger, mockMembers[0].id), 0);
+  assert.equal(memberTotal(ledger, mockMembers[2].id), 0);
+});
+
+test('arriver mode: full voyage with two arrivers ends with per-member totals', async () => {
+  const backend = arriverBackend();
+  // Stages 1-3 by member 0, stages 4-6 by member 1 (Ithaca is 300).
+  for (const [i, s] of mockStages.entries()) {
+    const memberId = mockMembers[i < 3 ? 0 : 1].id;
+    const r = await backend.clearStage({ odysseyId: ID, stageId: s.id, memberId, position: s });
+    assert.equal(r.status, 'cleared');
+  }
+  assert.equal((await backend.getOdyssey(ID)).status, 'complete');
+  const ledger = await backend.getLedger(ID);
+  assert.equal(ledger.length, 6);
+  assert.equal(memberTotal(ledger, mockMembers[0].id), 300);
+  assert.equal(memberTotal(ledger, mockMembers[1].id), 500);
+  assert.equal(memberTotal(ledger, mockMembers[2].id), 0);
+});
+
+test('arriver mode is idempotent', async () => {
+  const backend = arriverBackend();
+  const input = { odysseyId: ID, stageId: stageAt(0).id, memberId: ME, position: stageAt(0) };
+  assert.equal((await backend.clearStage(input)).status, 'cleared');
+  assert.equal((await backend.clearStage(input)).status, 'already_cleared');
+  assert.equal((await backend.clearStage({ ...input, memberId: mockMembers[1].id })).status, 'already_cleared');
+  assert.equal((await backend.getLedger(ID)).length, 1);
+});
+
+test('arriver mode: an unknown member clears the stage but earns nothing', async () => {
+  const backend = arriverBackend();
+  const result = await backend.clearStage({ odysseyId: ID, stageId: stageAt(0).id, memberId: 'ghost', position: stageAt(0) });
+  assert.equal(result.status, 'cleared');
+  assert.equal((await backend.getLedger(ID)).length, 0);
+  assert.equal((await backend.getOdyssey(ID)).current_stage_order, 2);
 });
