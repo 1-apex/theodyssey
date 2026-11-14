@@ -5,7 +5,7 @@
 //   200:     { odyssey_id, join_code }
 //   failure: { error: <code>, message }   400 | 401 | 422 | 502 | 500
 //
-// Flow: insert odyssey (forging) -> Oracle -> insert stages -> status lobby.
+// Flow: insert odyssey (forging) -> Oracle (one retry) -> insert stages -> lobby.
 // If anything fails after the first insert, the forging row is deleted.
 //
 // No imports beyond the Oracle: Auth and PostgREST are called with fetch, so
@@ -131,12 +131,28 @@ function parseBody(raw: unknown): Body | string {
   };
 }
 
-const ORACLE_STATUS: Record<OracleError['code'], number> = {
-  endpoint_not_found: 422,
-  too_few_stages: 422,
-  llm_failed: 502,
-  llm_bad_output: 502,
+// What the client is told. Upstream error bodies stay in the function logs.
+const ORACLE_FAILURE: Record<OracleError['code'], { status: number; message: string | null }> = {
+  endpoint_not_found: { status: 422, message: null }, // keep: says which end was not found
+  too_few_stages: { status: 422, message: 'The Oracle could not chart enough real places. Try again.' },
+  llm_failed: { status: 502, message: 'The Oracle is silent. Try again in a moment.' },
+  llm_bad_output: { status: 502, message: 'The Oracle spoke in riddles. Try again.' },
 };
+
+/** These are usually transient (rate limit, a bad roll of the dice), so try twice. */
+const RETRYABLE: OracleError['code'][] = ['llm_failed', 'llm_bad_output', 'too_few_stages'];
+
+async function consultWithRetry(
+  ...args: Parameters<typeof consultOracle>
+): ReturnType<typeof consultOracle> {
+  try {
+    return await consultOracle(...args);
+  } catch (e) {
+    if (!(e instanceof OracleError) || !RETRYABLE.includes(e.code)) throw e;
+    console.warn(`oracle attempt 1 failed [${e.code}], retrying: ${e.message}`);
+    return await consultOracle(...args);
+  }
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
@@ -180,7 +196,7 @@ Deno.serve(async (req) => {
 
   try {
     // 2. The Oracle.
-    const result = await consultOracle(body, {
+    const result = await consultWithRetry(body, {
       llmApiKey,
       geocodingApiKey,
       model: Deno.env.get('LLM_MODEL') ?? undefined,
@@ -214,7 +230,8 @@ Deno.serve(async (req) => {
     );
     if (e instanceof OracleError) {
       console.error(`oracle failed [${e.code}]`, e.message);
-      return fail(ORACLE_STATUS[e.code], e.code, e.message);
+      const { status, message } = ORACLE_FAILURE[e.code];
+      return fail(status, e.code, message ?? e.message);
     }
     console.error('generate-odyssey failed', e);
     return fail(500, 'internal', 'The Oracle fell silent');
