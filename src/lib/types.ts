@@ -68,9 +68,30 @@ export interface GenerateOdysseyRequest {
   travel_style: string;
   duration: string;
   visibility_mode: VisibilityMode;
+  /**
+   * Optional, sent together. When present the Captain is added to the crew as
+   * part of creation. Otherwise the Captain joins with `join_odyssey` like
+   * everyone else.
+   */
+  nickname?: string;
+  avatar_id?: string;
 }
 
 export interface GenerateOdysseyResponse {
   odyssey_id: string;
   join_code: string;
+}
+
+/** Body of any non-200 response from `generate-odyssey`. */
+export interface GenerateOdysseyError {
+  error:
+    | 'invalid_request'
+    | 'not_authenticated'
+    | 'endpoint_not_found' // start or destination could not be geocoded
+    | 'too_few_stages' // fewer than 3 stages survived; let the Captain retry
+    | 'llm_failed'
+    | 'llm_bad_output'
+    | 'not_configured'
+    | 'internal';
+  message: string;
 }
