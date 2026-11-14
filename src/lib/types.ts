@@ -158,6 +158,13 @@ export interface PointsSummaryRow {
   stages_cleared: number;
 }
 
+/**
+ * `create_demo_odyssey({ p_visibility_mode })` returns GenerateOdysseyResponse.
+ * A ready-made route with the caller as Captain; no LLM or geocoder involved.
+ * Demo fallback, and a way to get real data before the Oracle is deployed.
+ */
+export type CreateDemoOdysseyResult = GenerateOdysseyResponse;
+
 export type RpcErrorMessage =
   | 'not_authenticated'
   | 'not_crew'
@@ -168,4 +175,5 @@ export type RpcErrorMessage =
   | 'invalid_nickname' // must be 1 to 24 characters
   | 'invalid_avatar'
   | 'not_captain'
-  | 'odyssey_not_ready'; // set_sail while still forging
+  | 'odyssey_not_ready' // set_sail while still forging
+  | 'invalid_visibility_mode';
