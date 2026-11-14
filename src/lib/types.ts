@@ -79,6 +79,8 @@ export interface GenerateOdysseyRequest {
   travel_style: string;
   duration: string;
   visibility_mode: VisibilityMode;
+  /** Defaults to `crew`. */
+  points_mode?: PointsMode;
   /**
    * Optional, sent together. When present the Captain is added to the crew as
    * part of creation. Otherwise the Captain joins with `join_odyssey` like
@@ -142,7 +144,7 @@ export interface ClearStageResult {
   stage_id: string;
   /** Metres from the stage. Null for manual arrivals. */
   distance_m: number | null;
-  /** Drachma each crew member received from this call (0 unless `cleared`). */
+  /** Drachma each paid member received from this call (0 unless `cleared`). Who is paid depends on points_mode. */
   points_awarded: number;
   odyssey_status: OdysseyStatus;
   current_stage_order: number;
@@ -170,7 +172,7 @@ export interface PointsSummaryRow {
 }
 
 /**
- * `create_demo_odyssey({ p_visibility_mode })` returns GenerateOdysseyResponse.
+ * `create_demo_odyssey({ p_visibility_mode, p_points_mode })` returns GenerateOdysseyResponse.
  * A ready-made route with the caller as Captain; no LLM or geocoder involved.
  * Demo fallback, and a way to get real data before the Oracle is deployed.
  */
@@ -187,4 +189,5 @@ export type RpcErrorMessage =
   | 'invalid_avatar'
   | 'not_captain'
   | 'odyssey_not_ready' // set_sail while still forging
-  | 'invalid_visibility_mode';
+  | 'invalid_visibility_mode'
+  | 'invalid_points_mode';

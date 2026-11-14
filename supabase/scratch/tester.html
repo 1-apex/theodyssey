@@ -114,6 +114,7 @@
       <label>Crew size <input id="o-crew" type="number" value="4" min="1"></label>
       <label>Duration <input id="o-duration" value="2 days"></label>
       <label>Visibility <select id="o-mode"><option>fog</option><option>open</option></select></label>
+      <label>Drachma go to <select id="o-points"><option>crew</option><option>arriver</option></select></label>
     </div>
     <label>Travel style <input id="o-style" value="scenic, food stops, no rush"></label>
     <div class="row">
@@ -299,6 +300,7 @@ function oracleBody() {
   const b = {
     start: $('o-start').value, destination: $('o-dest').value, crew_size: Number($('o-crew').value),
     travel_style: $('o-style').value, duration: $('o-duration').value, visibility_mode: $('o-mode').value,
+    points_mode: $('o-points').value,
   };
   if ($('o-nick').value.trim()) { b.nickname = $('o-nick').value.trim(); b.avatar_id = $('o-avatar').value.trim() || 'avatar_01'; }
   return b;
@@ -311,7 +313,7 @@ async function created(r) {
   return true;
 }
 const summon = (opts) => call('generate-odyssey (Edge Function)', '/functions/v1/generate-odyssey', { body: oracleBody(), ...opts });
-const demo = (opts) => rpc('create_demo_odyssey', { p_visibility_mode: $('o-mode').value }, opts);
+const demo = (opts) => rpc('create_demo_odyssey', { p_visibility_mode: $('o-mode').value, p_points_mode: $('o-points').value }, opts);
 
 // --- 4-7. panels --------------------------------------------------------------
 async function refresh() {
@@ -336,6 +338,7 @@ function renderOdyssey(r) {
     <dt>route</dt><dd>${esc(o.start_name)} &rarr; ${esc(o.destination_name)}</dd>
     <dt>status</dt><dd><span class="badge">${esc(o.status)}</span></dd>
     <dt>visibility_mode</dt><dd><span class="badge">${esc(o.visibility_mode)}</span></dd>
+    <dt>points_mode</dt><dd><span class="badge">${esc(o.points_mode)}</span></dd>
     <dt>current_stage_order</dt><dd>${o.current_stage_order}</dd>
     <dt>join_code</dt><dd class="mono">${esc(o.join_code)}</dd>
     <dt>captain</dt><dd class="mono">${short(o.captain_id)} ${o.captain_id === me().id ? '(this user)' : ''}</dd></dl>`;
@@ -503,6 +506,8 @@ async function walkthrough() {
   r = await rpc('clear_stage', clearParams('far', first.id, first.lat, first.lng), { user: sailor });
   check('1 km away is too far', r.body?.result === 'too_far', r);
 
+  const arriverOnly = $('o-points').value === 'arriver';
+  const earned = new Map([[captain, 0], [sailor, 0]]);
   let expected = 0, status = '';
   for (let order = 1; order <= total; order++) {
     const who = order % 2 ? sailor : captain;
@@ -513,6 +518,7 @@ async function walkthrough() {
     r = await rpc('clear_stage', clearParams(order % 2 ? 'near' : 'manual', s.id, s.lat, s.lng), { user: who, label: `clear_stage ${order} (${order % 2 ? 'GPS' : 'manual'})` });
     if (!check(`Stage ${order} cleared by ${who.label} (${order % 2 ? 'GPS' : 'manual'}), +${s.points} dr`, r.body?.result === 'cleared' && r.body.points_awarded === s.points, r)) break;
     expected += s.points; status = r.body.odyssey_status;
+    earned.set(who, earned.get(who) + s.points);
   }
   check('Odyssey is complete after Ithaca', status === 'complete', { body: status });
   r = await rpc('clear_stage', { p_stage_id: first.id, p_manual: true }, { user: captain });
@@ -520,7 +526,10 @@ async function walkthrough() {
   r = await rpc('get_visible_stages', { p_odyssey_id: id }, { user: sailor });
   check('Full route revealed at Ithaca', r.body?.stages?.length === total, r);
   r = await rpc('get_points_summary', { p_odyssey_id: id }, { user: captain });
-  check(`Both members have ${expected} Drachma`, r.body?.length === 2 && r.body.every((m) => m.total_points === expected), r);
+  const total_of = (nick) => r.body?.find?.((m) => m.nickname === nick)?.total_points;
+  if (arriverOnly) check(`Arriver mode: Captain has ${earned.get(captain)} and Sailor has ${earned.get(sailor)} Drachma`,
+    total_of('Odysseus') === earned.get(captain) && total_of('Eurylochus') === earned.get(sailor), r);
+  else check(`Crew mode: both members have ${expected} Drachma`, r.body?.length === 2 && r.body.every((m) => m.total_points === expected), r);
 
   state.active = state.users.indexOf(captain); save(); renderUsers(); await refresh();
   finish();
@@ -564,6 +573,7 @@ const hash = new URLSearchParams(location.hash.slice(1));
 if (hash.get('url')) state.url = hash.get('url');
 if (hash.get('key')) state.key = hash.get('key');
 if (hash.get('mode')) $('o-mode').value = hash.get('mode');
+if (hash.get('points')) $('o-points').value = hash.get('points');
 if (hash.get('oracle')) $('walk-oracle').checked = true;
 $('url').value = state.url; $('key').value = state.key; $('odyssey-id').value = state.odysseyId;
 renderUsers();

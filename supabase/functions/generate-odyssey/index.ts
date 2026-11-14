@@ -87,6 +87,7 @@ async function db(
 
 interface Body extends OracleRequest {
   visibility_mode: 'open' | 'fog';
+  points_mode: 'crew' | 'arriver';
   nickname?: string;
   avatar_id?: string;
 }
@@ -109,6 +110,10 @@ function parseBody(raw: unknown): Body | string {
   if (b.visibility_mode !== 'open' && b.visibility_mode !== 'fog') {
     return 'visibility_mode must be "open" or "fog"';
   }
+  const points_mode = b.points_mode ?? 'crew';
+  if (points_mode !== 'crew' && points_mode !== 'arriver') {
+    return 'points_mode must be "crew" or "arriver"';
+  }
 
   const crew = Number(b.crew_size ?? 2);
   const nickname = b.nickname === undefined ? undefined : str(b.nickname, 24);
@@ -126,6 +131,7 @@ function parseBody(raw: unknown): Body | string {
     travel_style: str(b.travel_style, 300) ?? 'a balanced mix of sights and food',
     duration: str(b.duration, 60) ?? 'flexible',
     visibility_mode: b.visibility_mode,
+    points_mode,
     nickname,
     avatar_id,
   };
@@ -182,6 +188,7 @@ Deno.serve(async (req) => {
         start_name: body.start,
         destination_name: body.destination,
         visibility_mode: body.visibility_mode,
+        points_mode: body.points_mode,
       });
       odyssey = row as { id: string; join_code: string };
     } catch (e) {
