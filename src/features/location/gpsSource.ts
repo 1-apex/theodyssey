@@ -29,7 +29,14 @@ export function createGpsSource(): GpsSource {
   const onFix = (loc: Location.LocationObject): void => {
     last = { lat: loc.coords.latitude, lng: loc.coords.longitude };
     accuracy = loc.coords.accuracy;
-    listeners.forEach((l) => l(last as LatLng));
+    const fix = last;
+    listeners.forEach((l) => {
+      try {
+        l(fix);
+      } catch {
+        // A throwing listener must not break the source or starve the other listeners.
+      }
+    });
   };
 
   const begin = async (gen: number): Promise<GpsStartResult> => {
@@ -51,7 +58,13 @@ export function createGpsSource(): GpsSource {
   return {
     subscribe(listener) {
       listeners.add(listener);
-      if (last !== null) listener(last);
+      if (last !== null) {
+        try {
+          listener(last);
+        } catch {
+          // Same rule as onFix: a throwing listener must not break the source.
+        }
+      }
       return () => {
         listeners.delete(listener);
       };

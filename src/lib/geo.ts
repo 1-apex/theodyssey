@@ -19,14 +19,17 @@ export function isWithinStage(pos: LatLng, stage: Pick<Stage, 'lat' | 'lng' | 'r
   return haversineM(pos, stage) <= stage.radius_m;
 }
 
-/** Point a fraction `t` (0..1) of the way from `a` to `b`. Good enough for simulate mode. */
+/** Point a fraction `t` (0..1) of the way from `a` to `b`. Good enough for simulate mode. Not valid across the antimeridian. */
 export function lerpLatLng(a: LatLng, b: LatLng, t: number): LatLng {
   return { lat: a.lat + (b.lat - a.lat) * t, lng: a.lng + (b.lng - a.lng) * t };
 }
 
-/** Point `northM` metres north and `eastM` metres east of `pos` (negative for south/west). Flat-earth approximation. */
+/** Point `northM` metres north and `eastM` metres east of `pos` (negative for south/west). Flat-earth approximation. Not valid at the poles. */
 export function offsetLatLng(pos: LatLng, northM: number, eastM: number): LatLng {
   const dLat = northM / EARTH_RADIUS_M;
   const dLng = eastM / (EARTH_RADIUS_M * Math.cos(toRad(pos.lat)));
-  return { lat: pos.lat + (dLat * 180) / Math.PI, lng: pos.lng + (dLng * 180) / Math.PI };
+  const lng = pos.lng + (dLng * 180) / Math.PI;
+  // Wrap into [-180, 180].
+  const wrapped = ((((lng + 180) % 360) + 360) % 360) - 180;
+  return { lat: pos.lat + (dLat * 180) / Math.PI, lng: wrapped };
 }

@@ -30,7 +30,10 @@ export interface SimulateOptions {
   steps?: number;
 }
 
-export function createSimulateSource({ start, stepMs = 500, steps = 20 }: SimulateOptions): SimulateSource {
+export function createSimulateSource({ start, stepMs: rawStepMs = 500, steps: rawSteps = 20 }: SimulateOptions): SimulateSource {
+  // Bad numbers must not stop a sail from arriving: fewer than 1 step is 1, a bad delay is 0.
+  const steps = Number.isFinite(rawSteps) && rawSteps >= 1 ? rawSteps : 1;
+  const stepMs = Number.isFinite(rawStepMs) && rawStepMs >= 0 ? rawStepMs : 0;
   const listeners = new Set<PositionListener>();
   let current = start;
   let timer: ReturnType<typeof setInterval> | null = null;
@@ -39,7 +42,13 @@ export function createSimulateSource({ start, stepMs = 500, steps = 20 }: Simula
   const emit = ({ lat, lng }: LatLng): void => {
     // Copy the two fields so a Stage passed as a target is not leaked to listeners.
     current = { lat, lng };
-    listeners.forEach((l) => l(current));
+    listeners.forEach((l) => {
+      try {
+        l(current);
+      } catch {
+        // A throwing listener must not break the source or starve the other listeners.
+      }
+    });
   };
 
   const stop = (): void => {
@@ -52,7 +61,11 @@ export function createSimulateSource({ start, stepMs = 500, steps = 20 }: Simula
   return {
     subscribe(listener) {
       listeners.add(listener);
-      listener(current);
+      try {
+        listener(current);
+      } catch {
+        // A throwing listener must not break the source.
+      }
       return () => {
         listeners.delete(listener);
       };
@@ -71,8 +84,9 @@ export function createSimulateSource({ start, stepMs = 500, steps = 20 }: Simula
         finishSail = resolve;
         timer = setInterval(() => {
           step += 1;
-          emit(step >= steps ? target : lerpLatLng(from, target, step / steps));
-          if (step >= steps) stop();
+          const last = step >= steps;
+          emit(last ? target : lerpLatLng(from, target, step / steps));
+          if (last) stop();
         }, stepMs);
       });
     },

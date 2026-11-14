@@ -7,10 +7,10 @@ export const copy = {
     create: 'Summon the Oracle',
     join: 'Join a Crew',
     debug: 'Test voyage (simulate)',
+    mockSummary: (title: string, count: number) => `${title}: ${count} stages`,
   },
   // Dev C's test screen. Not part of the real UI.
   debug: {
-    heading: 'Test voyage',
     loading: 'Consulting the Oracle...',
     modeFog: 'Fog',
     modeOpen: 'Open',

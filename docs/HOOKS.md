@@ -32,8 +32,10 @@ Data hooks return `null` until the first load, reload on every backend change, a
 | `useCrew(odysseyId)` | `Member[] \| null` |
 | `usePoints(odysseyId)` | `{ ledger, totals, myTotal } \| null`. `totals` is Drachma per member id, `myTotal` is for the provider's `memberId` |
 | `useLocation()` | `LatLng \| null`, the source's live position |
-| `useArrivalWatcher(odysseyId, onResult?)` | nothing. Clears stages when the source enters the target's radius. `onResult` gets each `ClearStageResult`; its identity may change freely |
+| `useArrivalWatcher(odysseyId, onResult?, onError?)` | nothing. Clears stages when the source enters the target's radius. `onResult` gets each `ClearStageResult` as soon as it returns; `onError` gets any failed read or clear (the watcher keeps running and retries on the next position or backend change). Callback identities may change freely. Call it once per Odyssey, in one mounted place: Expo Router keeps stack screens mounted, and two instances would both fire clears |
 | `useManualArrival(odysseyId)` | `(stageId: string) => Promise<ClearStageResult>`. The "We have arrived" action for the stage on screen. Uses the source's last position and skips the distance check. A second call for the same stage gives `already_cleared`; a stale id is rejected |
+
+A custom `LocationSource` must replay its last position to a new subscriber (as the simulate and GPS sources do), otherwise the watcher will not examine the position until the next fix.
 
 `useSourceLocation(source)` (same file as `useLocation`) takes an explicit source, for code that runs before a provider exists.
 
@@ -67,7 +69,15 @@ function VoyageScreen() {
 
 (Real screens take their strings from `src/theme/copy.ts`.)
 
+`ClearStageResult` is `cleared`, `already_cleared` or `rejected` with a reason: `not_found`, `not_member`, `not_in_voyage`, `not_current_target` or `too_far`. After a `rejected` result the watcher does not retry the same stage until the position moves more than 25 m or 15 s pass.
+
+## Real GPS
+
+Create the source with `createGpsSource()`, call `start()` and check its result (`'granted' | 'denied' | 'error'`), and call `stop()` on unmount. The creator owns the lifecycle; the provider does not start or stop it. Foreground only in Expo Go. Pass the same source to `VoyageProvider`.
+
 ## Known limits
+
+GPS accuracy is not yet considered when clearing: a very imprecise fix that lands inside a radius clears the stage.
 
 A failed load is swallowed and the hook keeps its previous value (null on first load), so there is no error state yet. Revisit this when the Supabase backend replaces the mock.
 

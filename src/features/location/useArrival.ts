@@ -6,15 +6,27 @@ import { clearStageManually } from './manualArrival';
 import { startArrivalWatcher } from './watcher';
 
 /** Clears stages automatically as the source enters their radius. Stops on unmount. */
-export function useArrivalWatcher(odysseyId: string, onResult?: (r: ClearStageResult) => void): void {
+export function useArrivalWatcher(
+  odysseyId: string,
+  onResult?: (r: ClearStageResult) => void,
+  onError?: (error: unknown) => void,
+): void {
   const { backend, source, memberId } = useVoyageContext();
   // Latest callback lives in a ref so a new function identity never restarts the watcher.
-  const latest = useRef(onResult);
+  const latest = useRef({ onResult, onError });
   useEffect(() => {
-    latest.current = onResult;
+    latest.current = { onResult, onError };
   });
   useEffect(
-    () => startArrivalWatcher({ backend, source, odysseyId, memberId, onResult: (r) => latest.current?.(r) }),
+    () =>
+      startArrivalWatcher({
+        backend,
+        source,
+        odysseyId,
+        memberId,
+        onResult: (r) => latest.current.onResult?.(r),
+        onError: (e) => latest.current.onError?.(e),
+      }),
     [backend, source, odysseyId, memberId],
   );
 }

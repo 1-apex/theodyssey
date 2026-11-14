@@ -17,7 +17,7 @@ export interface ClearStageInput {
 export type ClearStageResult =
   | { status: 'cleared'; stage: Stage }
   | { status: 'already_cleared'; stage: Stage }
-  | { status: 'rejected'; reason: 'not_found' | 'not_current_target' | 'too_far' };
+  | { status: 'rejected'; reason: 'not_found' | 'not_member' | 'not_in_voyage' | 'not_current_target' | 'too_far' };
 
 export interface OdysseyBackend {
   getOdyssey(odysseyId: string): Promise<Odyssey>;
@@ -25,8 +25,17 @@ export interface OdysseyBackend {
   getVisibleStages(odysseyId: string): Promise<Stage[]>;
   getMembers(odysseyId: string): Promise<Member[]>;
   getLedger(odysseyId: string): Promise<LedgerEntry[]>;
-  /** Idempotent. Validates distance unless `manual`. */
+  /**
+   * Idempotent. Validates distance unless `manual`. Checks run in this order: not_found, not_member,
+   * already_cleared, not_in_voyage, not_current_target, too_far.
+   * The real implementation must take the member from the authenticated user rather than trusting
+   * `memberId`, and must be atomic and idempotent when two clears for the same stage arrive at once.
+   */
   clearStage(input: ClearStageInput): Promise<ClearStageResult>;
-  /** Fires whenever anything about the Odyssey changes. Returns an unsubscribe function. */
+  /**
+   * Fires whenever anything about the Odyssey changes. Returns an unsubscribe function.
+   * The real implementation must fire on any change to the Odyssey, its stages, members or ledger,
+   * and again after a reconnect (changes may have been missed while offline).
+   */
   subscribe(odysseyId: string, onChange: () => void): () => void;
 }

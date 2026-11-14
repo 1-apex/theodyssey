@@ -33,7 +33,9 @@ export function createMockBackend(seed: MockBackendSeed = {}): OdysseyBackend {
     async clearStage({ stageId, memberId, position, manual = false }) {
       const stage = stages.find((s) => s.id === stageId);
       if (stage === undefined) return { status: 'rejected', reason: 'not_found' };
+      if (!members.some((m) => m.id === memberId)) return { status: 'rejected', reason: 'not_member' };
       if (stage.cleared_at !== null) return { status: 'already_cleared', stage: { ...stage } };
+      if (odyssey.status !== 'voyage') return { status: 'rejected', reason: 'not_in_voyage' };
       if (stage.order !== odyssey.current_stage_order) return { status: 'rejected', reason: 'not_current_target' };
       if (!manual && (position === null || !isWithinStage(position, stage))) {
         return { status: 'rejected', reason: 'too_far' };
@@ -60,7 +62,13 @@ export function createMockBackend(seed: MockBackendSeed = {}): OdysseyBackend {
       if (next === undefined) odyssey.status = 'complete';
       else odyssey.current_stage_order = next.order;
 
-      listeners.forEach((l) => l());
+      listeners.forEach((l) => {
+        try {
+          l();
+        } catch {
+          // The clear is already committed: a throwing subscriber must not make it look failed.
+        }
+      });
       return { status: 'cleared', stage: { ...stage } };
     },
 

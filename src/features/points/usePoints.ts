@@ -21,6 +21,6 @@ export function usePoints(odysseyId: string): Points | null {
   return useMemo(() => {
     if (ledger === null) return null;
     const totals = totalsByMember(ledger);
-    return { ledger, totals, myTotal: totals[memberId] ?? 0 };
+    return { ledger, totals, myTotal: Object.hasOwn(totals, memberId) ? totals[memberId] : 0 };
   }, [ledger, memberId]);
 }

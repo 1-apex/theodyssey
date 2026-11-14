@@ -1,7 +1,7 @@
 // One hardcoded Odyssey with 6 stages (Mumbai to Goa).
 // Screens and simulate mode build against this until the backend is ready.
 
-import type { LatLng, LedgerEntry, Member, Odyssey, Stage } from './types';
+import type { LatLng, Member, Odyssey, Stage } from './types';
 
 const ODYSSEY_ID = 'mock-odyssey';
 
@@ -58,4 +58,3 @@ export const mockMembers: Member[] = [
   { id: 'mock-member-3', odyssey_id: ODYSSEY_ID, user_id: 'mock-user-3', nickname: 'Telemachus', avatar_id: 'avatar-3' },
 ];
 
-export const mockLedger: LedgerEntry[] = [];

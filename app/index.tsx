@@ -13,11 +13,13 @@ export default function Home() {
       <Text style={styles.title}>{copy.home.title}</Text>
       <Text style={styles.tagline}>{copy.home.tagline}</Text>
       <Text style={styles.mock}>
-        {mockOdyssey.title}: {mockStages.length} stages
+        {copy.home.mockSummary(mockOdyssey.title, mockStages.length)}
       </Text>
-      <Link href="/debug" style={styles.link}>
-        {copy.home.debug}
-      </Link>
+      {__DEV__ && (
+        <Link href="/debug" style={styles.link}>
+          {copy.home.debug}
+        </Link>
+      )}
     </View>
   );
 }

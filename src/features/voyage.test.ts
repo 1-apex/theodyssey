@@ -216,10 +216,10 @@ test('arriver mode is idempotent', async () => {
   assert.equal((await backend.getLedger(ID)).length, 1);
 });
 
-test('arriver mode: an unknown member clears the stage but earns nothing', async () => {
+test('arriver mode: an unknown member is rejected as not_member and the stage stays uncleared', async () => {
   const backend = arriverBackend();
   const result = await backend.clearStage({ odysseyId: ID, stageId: stageAt(0).id, memberId: 'ghost', position: stageAt(0) });
-  assert.equal(result.status, 'cleared');
+  assert.deepEqual(result, { status: 'rejected', reason: 'not_member' });
   assert.equal((await backend.getLedger(ID)).length, 0);
-  assert.equal((await backend.getOdyssey(ID)).current_stage_order, 2);
+  assert.equal((await backend.getOdyssey(ID)).current_stage_order, 1);
 });
