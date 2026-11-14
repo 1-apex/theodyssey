@@ -157,6 +157,20 @@ Run `e2e.ts --oracle` once more, then look in the Table Editor.
 4. No `odysseys` row is stuck in status `forging`.
 5. Database, then Publications, then `supabase_realtime`: `odysseys`, `members` and `points_ledger` are on; `stages` is off.
 
+## Testing by hand in the browser
+
+`supabase/scratch/tester.html` is a single page for clicking through every part of the backend and seeing each request and response.
+
+```
+open supabase/scratch/tester.html
+```
+
+1. **Connection:** paste the project URL and publishable key (local values come from `npx supabase status`), then Save and test. It should say anonymous sign-ins are enabled.
+2. **Full walkthrough (section 11):** press Run walkthrough. Expect `WALKTHROUGH PASSED`. Tick the Oracle box to create the route through the Edge Function instead of the demo route (hosted project only; see the note in Part 1).
+3. **By hand:** sign in two or three users in section 2 and click a user to act as it. Create an Odyssey as one, join as another, set sail, and clear stages. Switch users to see what each is allowed to see; in fog mode the stage list should show hidden islands.
+4. **Realtime:** open the page in a second browser window, select a different crew member there, and press Subscribe. Clearing a stage in the first window should log a `REALTIME` event in the second and refresh its panels.
+5. **Security checks (section 8)** and **Tables (section 9)** show what a client is refused and which rows each user can read.
+
 ## Part 6: Demo readiness
 
 Do this on the day, on the venue network.
