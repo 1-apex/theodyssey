@@ -137,8 +137,26 @@ export interface ClearStageResult {
   current_stage_order: number;
 }
 
+/** `join_odyssey({ p_join_code, p_nickname, p_avatar_id })`. Safe to repeat. */
+export interface JoinOdysseyResult {
+  odyssey_id: string;
+  member_id: string;
+}
+
+/** `set_sail({ p_odyssey_id })`. Captain only. Moves lobby to voyage. */
+export interface SetSailResult {
+  odyssey_id: string;
+  status: OdysseyStatus;
+}
+
 export type RpcErrorMessage =
   | 'not_authenticated'
   | 'not_crew'
   | 'stage_not_found'
-  | 'position_required';
+  | 'position_required'
+  | 'invalid_join_code'
+  | 'odyssey_not_joinable' // still forging, or already complete
+  | 'invalid_nickname' // must be 1 to 24 characters
+  | 'invalid_avatar'
+  | 'not_captain'
+  | 'odyssey_not_ready'; // set_sail while still forging
