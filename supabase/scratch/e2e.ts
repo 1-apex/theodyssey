@@ -5,7 +5,7 @@
 //   Local stack (after `npx supabase start`):
 //     node supabase/scratch/e2e.ts --local
 //   Hosted project (reads the URL and publishable key from the env file):
-//     node --env-file=supabase/functions/.env supabase/scratch/e2e.ts
+//     node --use-system-ca --env-file=supabase/functions/.env supabase/scratch/e2e.ts
 //
 //   --oracle       create the Odyssey with the real generate-odyssey function
 //                  (default: create_demo_odyssey, which needs no LLM keys)

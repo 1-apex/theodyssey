@@ -8,18 +8,20 @@ Work through the parts in order. Each step says what you should see. If a step f
 
 | Area | Status |
 |---|---|
-| Schema, RLS, all RPCs | Passing locally: 75 database tests |
+| Schema, RLS, all RPCs | Passing locally: 86 database tests |
 | Full flow over HTTP (auth, join, fog, clears, Drachma, Realtime) | Passing locally in fog and open mode |
 | Edge Function (auth, validation, persistence, retry, cleanup on failure) | Passing locally against a **mock** LLM and geocoder |
-| Real Gemini call | **Not tested.** No key was available. Part 2 covers it. |
-| Real Mapbox geocoding | **Not tested.** Part 2 covers it. |
+| Real Gemini and Mapbox calls (Part 2) | Passing from this machine: two routes, about 3 seconds each |
+| Edge Function with the real APIs | **Not tested.** It needs the hosted deploy in Part 3. |
+| Dev C's app code (merged from PR #1) | `npm test` (108), typecheck and lint pass. Not run on a phone. |
 | Anything on the hosted project | **Not tested.** Parts 3 and 4 cover it. |
 
-The two real API calls are the main risk. The request and response shapes were written from the current docs but have never run against the real services.
+The remaining risk is the hosted project: migrations, secrets and the deployed function have not been exercised.
 
 ## Before you start
 
 - Node 24: `nvm use 24`
+- On a network that inspects TLS (this one does), Node rejects outbound HTTPS with `self-signed certificate in certificate chain`. Add `--use-system-ca` after `node` in every command below that talks to the internet (Parts 2 and 4). It makes Node trust the macOS certificate store.
 - Docker Desktop running (only for Part 1)
 - `supabase/functions/.env` (gitignored) containing:
 
@@ -38,11 +40,13 @@ This repeats what has already passed, so you know your machine is set up.
 
 ```
 npx supabase start        # skip if it is already running
-npx supabase db reset     # applies all 5 migrations
+npx supabase db reset     # applies all 6 migrations
 npx supabase test db
 ```
 
-Expect `Files=5, Tests=75` and `Result: PASS`.
+Expect `Files=6, Tests=86` and `Result: PASS`.
+
+The app side has its own checks: `npm ci`, then `npm test` (108 pass), `npm run typecheck` and `npm run lint`.
 
 ```
 node supabase/scratch/e2e.ts --local
@@ -58,15 +62,15 @@ Do not test the Edge Function with real keys locally on this network. The local 
 This runs the exact pipeline the Edge Function uses, from Node, without Supabase.
 
 ```
-node --env-file=supabase/functions/.env supabase/scratch/try-oracle.ts
+node --use-system-ca --env-file=supabase/functions/.env supabase/scratch/try-oracle.ts
 ```
 
-Expect a themed title, then 3 to 7 stages, ending with `OK in Ns`.
+Expect a themed title, then 3 to 7 stages, ending with `OK in Ns`. This passed on 2026-11-14 for Arlington to Big Bend and Mumbai to Panaji.
 
 Check these by eye:
 
 1. Every stage is a real place, and the coordinates are in the right part of Texas. Paste one or two into a maps app.
-2. The last stage is Big Bend and shows `[250 dr]`; the others show `[100 dr]`.
+2. The last stage is the destination and shows `[250 dr]`; the others show `[100 dr]`.
 3. The `+N km` legs look like a sensible drive, with no jump backwards.
 4. At most one or two `dropped:` lines. Several drops on every run means the model is inventing places.
 5. It finishes in under about 15 seconds.
@@ -74,7 +78,7 @@ Check these by eye:
 Then try two routes of your own, including the one you plan to demo:
 
 ```
-node --env-file=supabase/functions/.env supabase/scratch/try-oracle.ts "Austin, TX" "Marfa, TX"
+node --use-system-ca --env-file=supabase/functions/.env supabase/scratch/try-oracle.ts "Austin, TX" "Marfa, TX"
 ```
 
 If it fails:
@@ -83,14 +87,15 @@ If it fails:
 |---|---|---|
 | `[llm_failed] LLM returned 400` | Gemini rejected the request body | Send me the full message; the request shape needs adjusting |
 | `[llm_failed] LLM returned 401/403` | Bad Gemini key | Check `LLM_API_KEY` |
-| `[llm_failed] LLM returned 404` | Model id not available to your key | Add `LLM_MODEL=gemini-3.1-flash-lite` to the env file and retry |
+| `fetch failed` / `self-signed certificate` | Node does not trust the network's TLS certificate | Add `--use-system-ca` |
+| `[llm_failed] LLM returned 404` | Model id not available to your key | Set `LLM_MODEL` in the env file to a model your key can use |
 | `[llm_failed] LLM returned 429` | Free-tier rate limit | Wait a minute |
 | `[llm_bad_output]` | The response layout differs from what the code reads | Send me the full message |
 | `Geocoding auth failed` | Bad Mapbox token | Check `GEOCODING_API_KEY` |
 | `[endpoint_not_found]` | Mapbox could not find the start or destination | Try a more specific name |
 | `[too_few_stages]` | Too many stages failed to geocode | Run again; if it repeats, try a stronger model with `LLM_MODEL` |
 
-The default model is `gemini-2.5-flash-lite`, the cheapest one. If routes are dull or often contain fake places, set `LLM_MODEL=gemini-3.8-flash` and compare.
+The default model is `gemini-3.1-flash-lite`, the cheapest one open to new API keys. If routes are dull or often contain fake places, set `LLM_MODEL=gemini-3.8-flash` and compare.
 
 ## Part 3: Set up the hosted project (about 5 minutes, once)
 
@@ -100,7 +105,7 @@ npx supabase link --project-ref <your project ref>
 npx supabase db push
 ```
 
-`db push` lists the 5 migrations and asks for confirmation. Expect all 5 applied with no errors.
+`db push` lists the 6 migrations and asks for confirmation. Expect all 6 applied with no errors.
 
 Then:
 
@@ -119,7 +124,7 @@ The secrets command also uploads the two `NEXT_PUBLIC_` values. They are public 
 First without the Oracle, to prove the database side:
 
 ```
-node --env-file=supabase/functions/.env supabase/scratch/e2e.ts
+node --use-system-ca --env-file=supabase/functions/.env supabase/scratch/e2e.ts
 ```
 
 Expect `ALL CHECKS PASSED`. If the first check fails with "Anonymous sign-in failed", step 1 of Part 3 was missed.
@@ -127,8 +132,8 @@ Expect `ALL CHECKS PASSED`. If the first check fails with "Anonymous sign-in fai
 Then with the real Oracle, in both modes:
 
 ```
-node --env-file=supabase/functions/.env supabase/scratch/e2e.ts --oracle
-node --env-file=supabase/functions/.env supabase/scratch/e2e.ts --oracle --mode=open
+node --use-system-ca --env-file=supabase/functions/.env supabase/scratch/e2e.ts --oracle
+node --use-system-ca --env-file=supabase/functions/.env supabase/scratch/e2e.ts --oracle --mode=open
 ```
 
 Expect `ALL CHECKS PASSED`, with the create step taking a few seconds.
@@ -186,4 +191,7 @@ Do this on the day, on the venue network.
 - `stages` sends no Realtime events. Subscribe to `odysseys`; it changes on every clear and on set sail. Refetch visible stages when it does.
 - The Captain must be in the crew to clear stages. Either send `nickname` and `avatar_id` to `generate-odyssey`, or call `join_odyssey` with the Captain's own code.
 - `clear_stage` returns a `result` field for normal outcomes (`too_far`, `already_cleared`, and so on). It only raises an error for bugs such as not being in the crew.
-- `create_demo_odyssey` works today on the hosted project without any API keys.
+- `create_demo_odyssey` works without any API keys once the migrations are pushed.
+- `points_mode` (`crew` or `arriver`) is stored on the Odyssey and applied by `clear_stage`. Send it to `generate-odyssey`; it defaults to `crew`.
+- Not in the schema yet: start coordinates for simulate mode. The Odyssey stores `start_name` only.
+- The server's default stage radius is 250 m; the mock uses 500 m.

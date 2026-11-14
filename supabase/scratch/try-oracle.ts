@@ -2,8 +2,8 @@
 // Runs the exact pipeline the generate-odyssey Edge Function uses.
 //
 //   nvm use 24
-//   node --env-file=supabase/functions/.env supabase/scratch/try-oracle.ts
-//   node --env-file=supabase/functions/.env supabase/scratch/try-oracle.ts "Austin, TX" "Marfa, TX"
+//   node --use-system-ca --env-file=supabase/functions/.env supabase/scratch/try-oracle.ts
+//   node --use-system-ca --env-file=supabase/functions/.env supabase/scratch/try-oracle.ts "Austin, TX" "Marfa, TX"
 //
 // supabase/functions/.env (gitignored) needs:
 //   LLM_API_KEY=<Gemini API key, https://aistudio.google.com/apikey>
