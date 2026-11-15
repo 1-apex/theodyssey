@@ -1,0 +1,584 @@
+<!doctype html>
+<!--
+  Odyssey backend tester. A single static page, no build and no dependencies.
+  Open it in a browser:   open supabase/scratch/tester.html
+  It talks to Supabase exactly as the app will: anonymous auth, the
+  generate-odyssey Edge Function, the RPCs, direct table reads, and Realtime.
+  Dev tool only. Not part of the app.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Odyssey backend tester</title>
+<style>
+  :root {
+    --bg: #f4f1ea; --card: #fffdf8; --ink: #1d2433; --muted: #667085; --line: #d9d3c5;
+    --accent: #1f5f8b; --accent-ink: #fff; --ok: #1a7f4b; --bad: #b42318; --warn: #9a6700; --code: #f0ece1;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12161f; --card: #1a202c; --ink: #e6e9ef; --muted: #98a2b3; --line: #2e3646;
+      --accent: #5aa9d6; --accent-ink: #0b1220; --ok: #4ade80; --bad: #f97066; --warn: #fbbf24; --code: #111620;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { padding: 14px 20px; border-bottom: 1px solid var(--line); display: flex; gap: 16px; align-items: baseline; flex-wrap: wrap; }
+  header h1 { font-size: 17px; margin: 0; }
+  header .who { color: var(--muted); }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; padding: 16px 20px; align-items: start; }
+  @media (max-width: 980px) { main { grid-template-columns: 1fr; } }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; margin-bottom: 14px; }
+  h2 { font-size: 14px; margin: 0 0 4px; }
+  h2 small { font-weight: 400; color: var(--muted); }
+  p.hint { margin: 0 0 10px; color: var(--muted); font-size: 13px; }
+  label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+  input, select, textarea { width: 100%; margin-top: 3px; padding: 6px 8px; font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 5px; }
+  .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
+  .btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+  button { font: inherit; padding: 6px 12px; border-radius: 5px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); cursor: pointer; }
+  button.ghost { background: transparent; color: var(--accent); }
+  button.small { padding: 3px 8px; font-size: 12px; }
+  button:disabled { opacity: .5; cursor: default; }
+  code, pre, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+  pre { background: var(--code); padding: 8px 10px; border-radius: 5px; overflow: auto; max-height: 320px; margin: 6px 0 0; white-space: pre-wrap; word-break: break-word; }
+  .badge { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 11px; font-weight: 600; border: 1px solid currentColor; }
+  .ok { color: var(--ok); } .bad { color: var(--bad); } .warn { color: var(--warn); } .muted { color: var(--muted); }
+  .users { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+  .user { border: 1px solid var(--line); border-radius: 6px; padding: 5px 9px; cursor: pointer; background: var(--bg); }
+  .user.active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 6px; }
+  th, td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; }
+  .scroll { overflow-x: auto; }
+  .stage { border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; margin-top: 8px; }
+  .stage.current { border-color: var(--accent); }
+  .stage.fogged { border-style: dashed; color: var(--muted); }
+  .stage h3 { margin: 0; font-size: 13px; }
+  .kv { display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; margin-top: 6px; font-size: 13px; }
+  .kv dt { color: var(--muted); } .kv dd { margin: 0; word-break: break-all; }
+  #log { position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow: auto; }
+  .entry { border-top: 1px solid var(--line); padding: 7px 0; }
+  .entry summary { cursor: pointer; list-style: none; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .entry summary::-webkit-details-marker { display: none; }
+  .checks li { margin: 2px 0; }
+  ul { padding-left: 18px; margin: 6px 0 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Odyssey backend tester</h1>
+  <span class="who">Acting as: <strong id="whoami">nobody (sign in below)</strong></span>
+  <span class="who" id="conn-state"></span>
+</header>
+
+<main>
+<div>
+
+  <section>
+    <h2>1. Connection</h2>
+    <p class="hint">Project URL and publishable (anon) key. Local values come from <code>npx supabase status</code>. Saved in this browser only.</p>
+    <div class="row">
+      <label>Supabase URL <input id="url" placeholder="http://127.0.0.1:54321 or https://xxxx.supabase.co"></label>
+      <label>Publishable key <input id="key" placeholder="sb_publishable_... or eyJ..."></label>
+    </div>
+    <div class="btns">
+      <button id="btn-connect">Save and test connection</button>
+      <button class="ghost" id="btn-local">Fill local URL</button>
+    </div>
+    <div id="conn-out"></div>
+  </section>
+
+  <section>
+    <h2>2. Logins <small>anonymous auth, one user per "phone"</small></h2>
+    <p class="hint">Sign in a few users, then click one to act as it. Every request below is sent as the selected user.</p>
+    <div class="row">
+      <label>Label for the next user <input id="user-label" placeholder="Captain"></label>
+    </div>
+    <div class="btns">
+      <button id="btn-signin">Sign in a new anonymous user</button>
+      <button class="ghost" id="btn-signout">Forget all users</button>
+    </div>
+    <div class="users" id="users"></div>
+  </section>
+
+  <section>
+    <h2>3. Create an Odyssey <small>prompt &rarr; Edge Function &rarr; response</small></h2>
+    <p class="hint">Summon the Oracle calls <code>generate-odyssey</code> (needs the function deployed with LLM and geocoding keys). The demo button needs no keys.</p>
+    <div class="row">
+      <label>Start <input id="o-start" value="Arlington, TX"></label>
+      <label>Destination <input id="o-dest" value="Big Bend National Park, TX"></label>
+    </div>
+    <div class="row">
+      <label>Crew size <input id="o-crew" type="number" value="4" min="1"></label>
+      <label>Duration <input id="o-duration" value="2 days"></label>
+      <label>Visibility <select id="o-mode"><option>fog</option><option>open</option></select></label>
+      <label>Drachma go to <select id="o-points"><option>crew</option><option>arriver</option></select></label>
+    </div>
+    <label>Travel style <input id="o-style" value="scenic, food stops, no rush"></label>
+    <div class="row">
+      <label>Captain nickname (optional) <input id="o-nick" placeholder="adds the Captain to the crew"></label>
+      <label>Captain avatar id (optional) <input id="o-avatar" placeholder="avatar_01"></label>
+    </div>
+    <div class="btns">
+      <button id="btn-oracle">Summon the Oracle</button>
+      <button class="ghost" id="btn-demo">Create demo odyssey (no AI)</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>4. Current Odyssey</h2>
+    <div class="row">
+      <label>Odyssey id <input id="odyssey-id" class="mono" placeholder="set by step 3 or by joining"></label>
+    </div>
+    <div class="btns"><button class="ghost" id="btn-refresh">Refresh everything as this user</button></div>
+    <div id="odyssey-out"><p class="hint">No Odyssey yet.</p></div>
+  </section>
+
+  <section>
+    <h2>5. Crew <small>join_odyssey, set_sail</small></h2>
+    <div class="row">
+      <label>Join code <input id="j-code" class="mono" placeholder="ABC234"></label>
+      <label>Nickname <input id="j-nick" value="Odysseus"></label>
+      <label>Avatar id <input id="j-avatar" value="avatar_01"></label>
+    </div>
+    <div class="btns">
+      <button id="btn-join">Join as this user</button>
+      <button id="btn-sail">Set sail (Captain only)</button>
+    </div>
+    <div id="crew-out"></div>
+  </section>
+
+  <section>
+    <h2>6. Voyage <small>get_visible_stages, clear_stage</small></h2>
+    <p class="hint">"Arrive" sends a position about 100 m from the stage. "1 km away" should be refused. "Manual" is the We have arrived button.</p>
+    <div id="stages-out"><p class="hint">No stages loaded.</p></div>
+  </section>
+
+  <section>
+    <h2>7. Drachma <small>get_points_summary</small></h2>
+    <div id="points-out"><p class="hint">Nothing yet.</p></div>
+  </section>
+
+  <section>
+    <h2>8. Security checks</h2>
+    <p class="hint">Things the app must not be able to do. Each should come back refused. Run with a crew member selected and an Odyssey loaded.</p>
+    <div class="btns"><button id="btn-security">Run security checks</button></div>
+    <ul class="checks" id="security-out"></ul>
+  </section>
+
+  <section>
+    <h2>9. Tables <small>schema and the rows this user can see</small></h2>
+    <p class="hint">Direct selects through RLS. Switch users to see what each one is allowed to read.</p>
+    <div class="btns"><button class="ghost" id="btn-tables">Load rows as this user</button></div>
+    <div id="tables-out"></div>
+  </section>
+
+  <section>
+    <h2>10. Realtime</h2>
+    <p class="hint">Subscribes the selected user to changes on the current Odyssey. Events appear in the log and refresh the panels, which is how other phones stay in sync.</p>
+    <div class="btns">
+      <button id="btn-rt">Subscribe</button>
+      <span id="rt-state" class="muted">not subscribed</span>
+    </div>
+  </section>
+
+  <section>
+    <h2>11. Full walkthrough</h2>
+    <p class="hint">Runs the whole game automatically with three fresh users: create, join, access checks, set sail, clear every stage, totals.</p>
+    <label><input type="checkbox" id="walk-oracle" style="width:auto"> Create the route with the Oracle form above instead of the demo route</label>
+    <div class="btns"><button id="btn-walk">Run walkthrough</button> <strong id="walk-result"></strong></div>
+    <ul class="checks" id="walk-out"></ul>
+  </section>
+
+</div>
+
+<div>
+  <section id="log">
+    <h2>Request log <small>newest first</small></h2>
+    <div class="btns"><button class="ghost small" id="btn-clear">Clear</button></div>
+    <div id="log-out"><p class="hint">Requests and responses will appear here.</p></div>
+  </section>
+</div>
+</main>
+
+<script>
+'use strict';
+const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const short = (id) => (id ? String(id).slice(0, 8) : '');
+
+// --- state (kept in localStorage so a reload keeps your users) --------------
+const store = {
+  get(k, d) { try { return JSON.parse(localStorage.getItem('odyssey-tester:' + k)) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem('odyssey-tester:' + k, JSON.stringify(v)); } catch { /* private mode */ } },
+};
+const state = {
+  url: store.get('url', ''), key: store.get('key', ''),
+  users: store.get('users', []), active: store.get('active', 0),
+  odysseyId: store.get('odysseyId', ''), odyssey: null,
+};
+const me = () => state.users[state.active] ?? null;
+const save = () => { for (const k of ['url', 'key', 'users', 'active', 'odysseyId']) store.set(k, state[k]); };
+
+// --- HTTP, with every call written to the log ---------------------------------
+async function call(label, path, opts = {}) {
+  const user = opts.user === undefined ? me() : opts.user; // pass user: null to send no token
+  const method = opts.method ?? 'POST';
+  const started = performance.now();
+  let status = 0, body;
+  try {
+    const res = await fetch(state.url.replace(/\/+$/, '') + path, {
+      method,
+      headers: {
+        apikey: state.key, 'Content-Type': 'application/json',
+        ...(user ? { Authorization: 'Bearer ' + user.token } : {}),
+        ...(opts.headers ?? {}),
+      },
+      body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
+    });
+    status = res.status;
+    const text = await res.text();
+    try { body = JSON.parse(text); } catch { body = text; }
+  } catch (e) {
+    body = { network_error: String(e), hint: 'Check the URL, that the project is running, and CORS.' };
+  }
+  const ms = Math.round(performance.now() - started);
+  if (!opts.quiet) log({ label, who: user?.label ?? 'signed out', method, path, status, ms, request: opts.body, response: body });
+  return { status, body, ms, ok: status >= 200 && status < 300 };
+}
+const rpc = (name, params, opts = {}) => call(opts.label ?? name, '/rest/v1/rpc/' + name, { body: params, ...opts });
+const select = (query, opts = {}) => call(opts.label ?? 'select ' + query.split('?')[0], '/rest/v1/' + query, { method: 'GET', ...opts });
+
+function log(e) {
+  const out = $('log-out');
+  if (out.firstElementChild?.tagName === 'P') out.innerHTML = '';
+  const cls = e.status >= 200 && e.status < 300 ? 'ok' : e.status ? 'bad' : 'warn';
+  const d = document.createElement('details');
+  d.className = 'entry';
+  d.open = true;
+  for (const old of out.querySelectorAll('details[open]')) old.open = false;
+  d.innerHTML =
+    `<summary><span class="badge ${cls}">${e.status || e.tag || 'ERR'}</span><strong>${esc(e.label)}</strong>` +
+    `<span class="muted">${esc(e.who ?? '')}${e.ms !== undefined ? ' · ' + e.ms + ' ms' : ''} · ${new Date().toLocaleTimeString()}</span></summary>` +
+    (e.path ? `<div class="mono muted">${esc(e.method)} ${esc(e.path)}</div>` : '') +
+    (e.request !== undefined ? `<pre>${esc(JSON.stringify(e.request, null, 2))}</pre>` : '') +
+    `<pre>${esc(typeof e.response === 'string' ? e.response : JSON.stringify(e.response, null, 2))}</pre>`;
+  out.prepend(d);
+}
+
+// --- 1. connection ------------------------------------------------------------
+async function connect() {
+  state.url = $('url').value.trim(); state.key = $('key').value.trim(); save();
+  const r = await call('auth settings', '/auth/v1/settings', { method: 'GET', user: null });
+  const anon = r.body?.external?.anonymous_users;
+  $('conn-out').innerHTML = r.ok
+    ? `<p class="${anon ? 'ok' : 'bad'}">Connected. Anonymous sign-ins: <strong>${anon ? 'enabled' : 'DISABLED. Enable it in Authentication settings.'}</strong></p>`
+    : `<p class="bad">Could not connect (status ${r.status || 'network error'}). See the log.</p>`;
+  $('conn-state').textContent = r.ok ? state.url : '';
+  return r.ok;
+}
+
+// --- 2. logins ----------------------------------------------------------------
+async function signIn(label) {
+  const r = await call('anonymous sign-in', '/auth/v1/signup', { body: {}, user: null });
+  if (!r.body?.access_token) return null;
+  const user = { label: label || 'User ' + (state.users.length + 1), id: r.body.user.id, token: r.body.access_token };
+  state.users.push(user); state.active = state.users.length - 1; save(); renderUsers();
+  return user;
+}
+function renderUsers() {
+  $('users').innerHTML = state.users.map((u, i) =>
+    `<div class="user ${i === state.active ? 'active' : ''}" data-i="${i}"><strong>${esc(u.label)}</strong> <span class="mono muted">${short(u.id)}</span></div>`).join('')
+    || '<span class="muted">No users yet.</span>';
+  $('whoami').textContent = me() ? `${me().label} (${short(me().id)})` : 'nobody (sign in below)';
+}
+
+// --- 3. create ----------------------------------------------------------------
+function oracleBody() {
+  const b = {
+    start: $('o-start').value, destination: $('o-dest').value, crew_size: Number($('o-crew').value),
+    travel_style: $('o-style').value, duration: $('o-duration').value, visibility_mode: $('o-mode').value,
+    points_mode: $('o-points').value,
+  };
+  if ($('o-nick').value.trim()) { b.nickname = $('o-nick').value.trim(); b.avatar_id = $('o-avatar').value.trim() || 'avatar_01'; }
+  return b;
+}
+async function created(r) {
+  if (!r.ok || !r.body?.odyssey_id) return false;
+  state.odysseyId = r.body.odyssey_id; save();
+  $('odyssey-id').value = state.odysseyId; $('j-code').value = r.body.join_code;
+  await refresh();
+  return true;
+}
+const summon = (opts) => call('generate-odyssey (Edge Function)', '/functions/v1/generate-odyssey', { body: oracleBody(), ...opts });
+const demo = (opts) => rpc('create_demo_odyssey', { p_visibility_mode: $('o-mode').value, p_points_mode: $('o-points').value }, opts);
+
+// --- 4-7. panels --------------------------------------------------------------
+async function refresh() {
+  state.odysseyId = $('odyssey-id').value.trim(); save();
+  if (!state.odysseyId || !me()) return;
+  const id = state.odysseyId;
+  const [o, crew, stages, points] = await Promise.all([
+    select(`odysseys?id=eq.${id}&select=*`, { quiet: true }),
+    select(`members?odyssey_id=eq.${id}&select=*&order=joined_at`, { quiet: true }),
+    rpc('get_visible_stages', { p_odyssey_id: id }, { quiet: true }),
+    rpc('get_points_summary', { p_odyssey_id: id }, { quiet: true }),
+  ]);
+  state.odyssey = o.body?.[0] ?? null;
+  renderOdyssey(o); renderCrew(crew); renderStages(stages); renderPoints(points);
+}
+function renderOdyssey(r) {
+  const o = state.odyssey;
+  if (!o) { $('odyssey-out').innerHTML = `<p class="warn">${esc(me().label)} cannot see this Odyssey (not Captain or crew), or it does not exist.</p>`; return; }
+  $('j-code').value = o.join_code;
+  $('odyssey-out').innerHTML = `<dl class="kv">
+    <dt>title</dt><dd><strong>${esc(o.title)}</strong></dd>
+    <dt>route</dt><dd>${esc(o.start_name)} &rarr; ${esc(o.destination_name)}</dd>
+    <dt>status</dt><dd><span class="badge">${esc(o.status)}</span></dd>
+    <dt>visibility_mode</dt><dd><span class="badge">${esc(o.visibility_mode)}</span></dd>
+    <dt>points_mode</dt><dd><span class="badge">${esc(o.points_mode)}</span></dd>
+    <dt>current_stage_order</dt><dd>${o.current_stage_order}</dd>
+    <dt>join_code</dt><dd class="mono">${esc(o.join_code)}</dd>
+    <dt>captain</dt><dd class="mono">${short(o.captain_id)} ${o.captain_id === me().id ? '(this user)' : ''}</dd></dl>`;
+}
+function renderCrew(r) {
+  const rows = Array.isArray(r.body) ? r.body : [];
+  $('crew-out').innerHTML = rows.length
+    ? `<table><tr><th>nickname</th><th>avatar_id</th><th>member id</th><th>user</th></tr>${rows.map((m) =>
+        `<tr><td>${esc(m.nickname)}</td><td>${esc(m.avatar_id)}</td><td class="mono">${short(m.id)}</td><td class="mono">${short(m.user_id)}${m.user_id === me().id ? ' (this user)' : ''}</td></tr>`).join('')}</table>`
+    : '<p class="hint">No crew visible to this user.</p>';
+}
+function renderStages(r) {
+  if (!r.ok) { $('stages-out').innerHTML = `<p class="warn">get_visible_stages refused: <code>${esc(r.body?.message ?? r.status)}</code></p>`; return; }
+  const { total_stages: total, stages } = r.body;
+  const cur = state.odyssey?.current_stage_order;
+  const sailing = state.odyssey?.status === 'voyage';
+  let html = `<p><strong>${stages.length} of ${total}</strong> stages visible to this user${stages.length < total ? ' (the rest are in fog)' : ''}.</p>`;
+  for (let order = 1; order <= total; order++) {
+    const s = stages.find((x) => x.order === order);
+    if (!s) { html += `<div class="stage fogged"><h3>${order}. Hidden in fog</h3></div>`; continue; }
+    const isCur = sailing && order === cur && !s.cleared_at;
+    html += `<div class="stage ${isCur ? 'current' : ''}"><h3>${order}. ${esc(s.title)} ` +
+      (s.cleared_at ? '<span class="badge ok">cleared</span>' : isCur ? '<span class="badge">current target</span>' : '<span class="badge muted">ahead</span>') + `</h3>
+      <div>${esc(s.name)} <span class="mono muted">(${s.lat.toFixed(4)}, ${s.lng.toFixed(4)}) · ${s.radius_m} m · ${s.points} dr</span></div>
+      <div class="muted">${esc(s.lore)}</div>
+      ${s.cleared_at ? '' : `<div class="btns">
+        <button class="small" data-clear="near" data-id="${s.id}" data-lat="${s.lat}" data-lng="${s.lng}">Arrive (GPS)</button>
+        <button class="small ghost" data-clear="far" data-id="${s.id}" data-lat="${s.lat}" data-lng="${s.lng}">1 km away</button>
+        <button class="small ghost" data-clear="manual" data-id="${s.id}">Manual: we have arrived</button></div>`}</div>`;
+  }
+  $('stages-out').innerHTML = html;
+}
+function renderPoints(r) {
+  const rows = Array.isArray(r.body) ? r.body : [];
+  $('points-out').innerHTML = rows.length
+    ? `<table><tr><th>nickname</th><th>Drachma</th><th>stages cleared</th></tr>${rows.map((m) =>
+        `<tr><td>${esc(m.nickname)}</td><td><strong>${m.total_points}</strong></td><td>${m.stages_cleared}</td></tr>`).join('')}</table>`
+    : '<p class="hint">No points visible to this user.</p>';
+}
+function clearParams(kind, id, lat, lng) {
+  if (kind === 'manual') return { p_stage_id: id, p_manual: true };
+  return { p_stage_id: id, p_lat: Number(lat) + (kind === 'far' ? 0.01 : 0.0009), p_lng: Number(lng) };
+}
+
+// --- 8. security checks ---------------------------------------------------------
+async function securityChecks(user = me(), odysseyId = state.odysseyId) {
+  const refused = (r) => r.status === 401 || r.status === 403;
+  const results = [];
+  const add = (name, pass, r) => results.push({ name, pass, detail: `${r.status} ${r.body?.message ?? ''}` });
+  let r = await select(`stages?odyssey_id=eq.${odysseyId}&select=*`, { user, label: 'SECURITY: direct select on stages' });
+  add('Stages cannot be read directly (fog cannot leak)', refused(r), r);
+  r = await call('SECURITY: direct update of odysseys', `/rest/v1/odysseys?id=eq.${odysseyId}`, { method: 'PATCH', user, body: { status: 'complete' } });
+  add('Odyssey status cannot be written directly', refused(r), r);
+  r = await call('SECURITY: direct update of stages', `/rest/v1/stages?odyssey_id=eq.${odysseyId}`, { method: 'PATCH', user, body: { cleared_at: new Date().toISOString() } });
+  add('cleared_at cannot be written directly', refused(r), r);
+  r = await call('SECURITY: direct insert into points_ledger', '/rest/v1/points_ledger', { user, body: { odyssey_id: odysseyId, member_id: odysseyId, stage_id: odysseyId, points: 9999, reason: 'cheat' } });
+  add('Drachma cannot be granted directly', refused(r), r);
+  r = await rpc('get_visible_stages', { p_odyssey_id: odysseyId }, { user: null, label: 'SECURITY: RPC while signed out' });
+  add('RPCs refuse signed-out callers', refused(r), r);
+  r = await call('SECURITY: Edge Function while signed out', '/functions/v1/generate-odyssey', { user: null, body: oracleBody() });
+  add('Edge Function refuses signed-out callers', r.status === 401, r);
+  return results;
+}
+const checkList = (el, items) => { el.innerHTML = items.map((c) =>
+  `<li><span class="badge ${c.pass ? 'ok' : 'bad'}">${c.pass ? 'PASS' : 'FAIL'}</span> ${esc(c.name)} <span class="muted mono">${esc(c.detail ?? '')}</span></li>`).join(''); };
+
+// --- 9. tables ----------------------------------------------------------------
+const SCHEMA = {
+  odysseys: 'id, join_code, captain_id, title, start_name, destination_name, visibility_mode (open|fog), status (forging|lobby|voyage|complete), current_stage_order, created_at',
+  members: 'id, odyssey_id, user_id, nickname, avatar_id, joined_at',
+  points_ledger: 'id, odyssey_id, member_id, stage_id, points, reason, created_at',
+  stages: 'id, odyssey_id, order, name, title, lore, lat, lng, radius_m, points, cleared_at, cleared_by',
+};
+async function loadTables() {
+  let html = '';
+  for (const t of Object.keys(SCHEMA)) {
+    const r = await select(`${t}?select=*&limit=50`, { label: `select ${t} (direct)` });
+    html += `<h2 style="margin-top:12px">${t}</h2><div class="mono muted">${SCHEMA[t]}</div>`;
+    if (!r.ok) html += `<p class="${t === 'stages' ? 'ok' : 'bad'}">Refused (${r.status}): ${esc(r.body?.message ?? '')}${t === 'stages' ? '. Expected: stages are only readable through get_visible_stages.' : ''}</p>`;
+    else if (!r.body.length) html += '<p class="hint">0 rows visible to this user.</p>';
+    else {
+      const cols = Object.keys(r.body[0]);
+      html += `<div class="scroll"><table><tr>${cols.map((c) => `<th>${c}</th>`).join('')}</tr>${r.body.map((row) =>
+        `<tr>${cols.map((c) => `<td class="mono">${esc(/_id$|^id$/.test(c) ? short(row[c]) : row[c])}</td>`).join('')}</tr>`).join('')}</table></div>`;
+    }
+  }
+  $('tables-out').innerHTML = html;
+}
+
+// --- 10. realtime ---------------------------------------------------------------
+let ws = null, beat = null;
+function subscribe() {
+  if (ws) { ws.close(); return; }
+  const user = me(), id = state.odysseyId;
+  if (!user || !id) return alert('Select a user and load an Odyssey first.');
+  ws = new WebSocket(`${state.url.replace(/^http/, 'ws').replace(/\/+$/, '')}/realtime/v1/websocket?apikey=${encodeURIComponent(state.key)}&vsn=1.0.0`);
+  const topic = 'realtime:tester-' + id;
+  const changes = [
+    { event: '*', schema: 'public', table: 'odysseys', filter: `id=eq.${id}` },
+    { event: '*', schema: 'public', table: 'members', filter: `odyssey_id=eq.${id}` },
+    { event: '*', schema: 'public', table: 'points_ledger', filter: `odyssey_id=eq.${id}` },
+  ];
+  ws.onopen = () => {
+    ws.send(JSON.stringify({ topic, event: 'phx_join', ref: '1', payload: { config: { postgres_changes: changes }, access_token: user.token } }));
+    beat = setInterval(() => ws?.send(JSON.stringify({ topic: 'phoenix', event: 'heartbeat', ref: 'hb', payload: {} })), 25000);
+    $('rt-state').textContent = `connecting as ${user.label}...`;
+  };
+  ws.onmessage = (m) => {
+    const msg = JSON.parse(m.data);
+    if (msg.event === 'system' && msg.payload?.status === 'ok') { $('rt-state').textContent = `subscribed as ${user.label}`; $('rt-state').className = 'ok'; $('btn-rt').textContent = 'Unsubscribe'; }
+    if (msg.event === 'postgres_changes') {
+      const d = msg.payload.data;
+      log({ label: `REALTIME ${d.type} on ${d.table}`, tag: 'RT', who: 'received by ' + user.label, response: d.record ?? d.old_record });
+      refresh();
+    }
+  };
+  ws.onclose = () => { clearInterval(beat); ws = null; $('rt-state').textContent = 'not subscribed'; $('rt-state').className = 'muted'; $('btn-rt').textContent = 'Subscribe'; };
+}
+
+// --- 11. walkthrough -------------------------------------------------------------
+async function walkthrough() {
+  const checks = [];
+  const out = $('walk-out'); $('walk-result').textContent = 'running...'; $('walk-result').className = '';
+  const check = (name, pass, r) => { checks.push({ name, pass, detail: pass ? '' : JSON.stringify(r?.body ?? r).slice(0, 160) }); checkList(out, checks); return pass; };
+  const finish = () => {
+    const failed = checks.filter((c) => !c.pass).length;
+    $('walk-result').textContent = failed ? `WALKTHROUGH FAILED (${failed} of ${checks.length})` : `WALKTHROUGH PASSED (${checks.length} checks)`;
+    $('walk-result').className = failed ? 'bad' : 'ok';
+  };
+  if (!(await connect())) { check('Connect to Supabase', false, 'see log'); return finish(); }
+  const captain = await signIn('Captain'), sailor = await signIn('Sailor'), outsider = await signIn('Outsider');
+  if (!check('Three anonymous users signed in', !!(captain && sailor && outsider), 'sign-in failed, see log')) return finish();
+
+  const made = $('walk-oracle').checked ? await summon({ user: captain }) : await demo({ user: captain });
+  if (!check(`Captain creates an Odyssey (${$('walk-oracle').checked ? 'Oracle' : 'demo route'}, ${$('o-mode').value})`, made.ok && !!made.body?.join_code, made)) return finish();
+  const id = made.body.odyssey_id, code = made.body.join_code, fog = $('o-mode').value === 'fog';
+  state.odysseyId = id; $('odyssey-id').value = id; save();
+
+  let r = await rpc('join_odyssey', { p_join_code: 'ZZZZZZ', p_nickname: 'Nobody', p_avatar_id: 'avatar_01' }, { user: sailor });
+  check('Wrong join code is rejected', r.body?.message === 'invalid_join_code', r);
+  r = await rpc('join_odyssey', { p_join_code: code, p_nickname: 'Odysseus', p_avatar_id: 'avatar_01' }, { user: captain });
+  check('Captain joins the crew', r.ok, r);
+  r = await rpc('join_odyssey', { p_join_code: code.toLowerCase(), p_nickname: 'Eurylochus', p_avatar_id: 'avatar_02' }, { user: sailor });
+  check('Sailor joins with a lower-case code', r.ok, r);
+  r = await select(`members?odyssey_id=eq.${id}&select=nickname`, { user: sailor });
+  check('Crew list shows 2 members', r.body?.length === 2, r);
+
+  r = await rpc('get_visible_stages', { p_odyssey_id: id }, { user: outsider });
+  check('Outsider cannot read stages', r.body?.message === 'not_crew', r);
+  r = await select(`odysseys?id=eq.${id}&select=id`, { user: outsider });
+  check('Outsider cannot read the Odyssey', Array.isArray(r.body) && r.body.length === 0, r);
+  for (const c of await securityChecks(sailor, id)) check(c.name, c.pass, { body: c.detail });
+
+  r = await rpc('get_visible_stages', { p_odyssey_id: id }, { user: sailor });
+  const total = r.body?.total_stages ?? 0;
+  check(fog ? `Fog: 1 of ${total} stages visible before sailing` : `Open: all ${total} stages visible`, r.body?.stages?.length === (fog ? 1 : total), r);
+  const first = r.body?.stages?.[0];
+  if (!first) return finish();
+  r = await rpc('clear_stage', clearParams('near', first.id, first.lat, first.lng), { user: sailor });
+  check('Cannot clear a stage before setting sail', r.body?.result === 'not_sailing', r);
+  r = await rpc('set_sail', { p_odyssey_id: id }, { user: sailor });
+  check('Sailor cannot set sail', r.body?.message === 'not_captain', r);
+  r = await rpc('set_sail', { p_odyssey_id: id }, { user: captain });
+  check('Captain sets sail', r.body?.status === 'voyage', r);
+  r = await rpc('clear_stage', clearParams('far', first.id, first.lat, first.lng), { user: sailor });
+  check('1 km away is too far', r.body?.result === 'too_far', r);
+
+  const arriverOnly = $('o-points').value === 'arriver';
+  const earned = new Map([[captain, 0], [sailor, 0]]);
+  let expected = 0, status = '';
+  for (let order = 1; order <= total; order++) {
+    const who = order % 2 ? sailor : captain;
+    r = await rpc('get_visible_stages', { p_odyssey_id: id }, { user: who, quiet: true });
+    const s = r.body?.stages?.find((x) => x.order === order);
+    if (!s) { check(`Stage ${order} is visible as the current target`, false, r); break; }
+    if (fog && !check(`Fog: ${order} of ${total} visible before clearing stage ${order}`, r.body.stages.length === order, r)) break;
+    r = await rpc('clear_stage', clearParams(order % 2 ? 'near' : 'manual', s.id, s.lat, s.lng), { user: who, label: `clear_stage ${order} (${order % 2 ? 'GPS' : 'manual'})` });
+    if (!check(`Stage ${order} cleared by ${who.label} (${order % 2 ? 'GPS' : 'manual'}), +${s.points} dr`, r.body?.result === 'cleared' && r.body.points_awarded === s.points, r)) break;
+    expected += s.points; status = r.body.odyssey_status;
+    earned.set(who, earned.get(who) + s.points);
+  }
+  check('Odyssey is complete after Ithaca', status === 'complete', { body: status });
+  r = await rpc('clear_stage', { p_stage_id: first.id, p_manual: true }, { user: captain });
+  check('Clearing a cleared stage changes nothing', r.body?.result === 'already_cleared' && r.body.points_awarded === 0, r);
+  r = await rpc('get_visible_stages', { p_odyssey_id: id }, { user: sailor });
+  check('Full route revealed at Ithaca', r.body?.stages?.length === total, r);
+  r = await rpc('get_points_summary', { p_odyssey_id: id }, { user: captain });
+  const total_of = (nick) => r.body?.find?.((m) => m.nickname === nick)?.total_points;
+  if (arriverOnly) check(`Arriver mode: Captain has ${earned.get(captain)} and Sailor has ${earned.get(sailor)} Drachma`,
+    total_of('Odysseus') === earned.get(captain) && total_of('Eurylochus') === earned.get(sailor), r);
+  else check(`Crew mode: both members have ${expected} Drachma`, r.body?.length === 2 && r.body.every((m) => m.total_points === expected), r);
+
+  state.active = state.users.indexOf(captain); save(); renderUsers(); await refresh();
+  finish();
+}
+
+// --- wiring ---------------------------------------------------------------------
+const busy = (btn, fn) => async () => { btn.disabled = true; try { await fn(); } finally { btn.disabled = false; } };
+const needUser = (fn) => async () => { if (!me()) return alert('Sign in a user first (section 2).'); await fn(); };
+const on = (id, fn) => $(id).addEventListener('click', busy($(id), fn));
+
+on('btn-connect', connect);
+$('btn-local').addEventListener('click', () => { $('url').value = 'http://127.0.0.1:54321'; });
+on('btn-signin', async () => { await signIn($('user-label').value.trim()); $('user-label').value = ''; await refresh(); });
+$('btn-signout').addEventListener('click', () => { state.users = []; state.active = 0; save(); renderUsers(); });
+$('users').addEventListener('click', async (e) => {
+  const el = e.target.closest('.user'); if (!el) return;
+  state.active = Number(el.dataset.i); save(); renderUsers(); if (ws) ws.close(); await refresh();
+});
+on('btn-oracle', needUser(async () => { await created(await summon()); }));
+on('btn-demo', needUser(async () => { await created(await demo()); }));
+on('btn-refresh', needUser(refresh));
+on('btn-join', needUser(async () => {
+  const r = await rpc('join_odyssey', { p_join_code: $('j-code').value, p_nickname: $('j-nick').value, p_avatar_id: $('j-avatar').value });
+  if (r.ok) { $('odyssey-id').value = r.body.odyssey_id; await refresh(); }
+}));
+on('btn-sail', needUser(async () => { await rpc('set_sail', { p_odyssey_id: $('odyssey-id').value.trim() }); await refresh(); }));
+$('stages-out').addEventListener('click', async (e) => {
+  const b = e.target.closest('button[data-clear]'); if (!b) return;
+  b.disabled = true;
+  await rpc('clear_stage', clearParams(b.dataset.clear, b.dataset.id, b.dataset.lat, b.dataset.lng), { label: `clear_stage (${b.dataset.clear})` });
+  await refresh();
+});
+on('btn-security', needUser(async () => checkList($('security-out'), await securityChecks())));
+on('btn-tables', needUser(loadTables));
+$('btn-rt').addEventListener('click', subscribe);
+on('btn-walk', walkthrough);
+$('btn-clear').addEventListener('click', () => { $('log-out').innerHTML = ''; });
+
+// Optional prefill from the URL hash: #url=...&key=...&mode=open&oracle=1&auto=1
+const hash = new URLSearchParams(location.hash.slice(1));
+if (hash.get('url')) state.url = hash.get('url');
+if (hash.get('key')) state.key = hash.get('key');
+if (hash.get('mode')) $('o-mode').value = hash.get('mode');
+if (hash.get('points')) $('o-points').value = hash.get('points');
+if (hash.get('oracle')) $('walk-oracle').checked = true;
+$('url').value = state.url; $('key').value = state.key; $('odyssey-id').value = state.odysseyId;
+renderUsers();
+if (hash.get('auto')) walkthrough();
+else if (state.url && state.key && me()) refresh();
+</script>
+</body>
+</html>

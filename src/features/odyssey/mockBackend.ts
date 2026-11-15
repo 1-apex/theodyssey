@@ -1,0 +1,84 @@
+// In-memory stand-in for Supabase. Holds one Odyssey and ignores the id argument.
+
+import { isWithinStage } from '../../lib/geo';
+import { mockMembers, mockOdyssey, mockStages } from '../../lib/mock';
+import type { LedgerEntry, Member, Odyssey, Stage } from '../../lib/types';
+import type { OdysseyBackend } from './backend';
+
+export interface MockBackendSeed {
+  odyssey?: Odyssey;
+  stages?: Stage[];
+  members?: Member[];
+}
+
+export function createMockBackend(seed: MockBackendSeed = {}): OdysseyBackend {
+  const odyssey: Odyssey = { ...(seed.odyssey ?? mockOdyssey) };
+  const stages: Stage[] = (seed.stages ?? mockStages).map((s) => ({ ...s }));
+  const members: Member[] = (seed.members ?? mockMembers).map((m) => ({ ...m }));
+  const ledger: LedgerEntry[] = [];
+  const listeners = new Set<() => void>();
+
+  const visibleStages = (): Stage[] => {
+    const sorted = [...stages].sort((a, b) => a.order - b.order);
+    if (odyssey.visibility_mode === 'open') return sorted;
+    return sorted.filter((s) => s.cleared_at !== null || s.order === odyssey.current_stage_order);
+  };
+
+  return {
+    getOdyssey: async () => ({ ...odyssey }),
+    getVisibleStages: async () => visibleStages().map((s) => ({ ...s })),
+    getStageCount: async () => stages.length,
+    getMembers: async () => members.map((m) => ({ ...m })),
+    getLedger: async () => ledger.map((e) => ({ ...e })),
+
+    async clearStage({ stageId, memberId, position, manual = false }) {
+      const stage = stages.find((s) => s.id === stageId);
+      if (stage === undefined) return { status: 'rejected', reason: 'not_found' };
+      if (!members.some((m) => m.id === memberId)) return { status: 'rejected', reason: 'not_member' };
+      if (stage.cleared_at !== null) return { status: 'already_cleared', stage: { ...stage } };
+      if (odyssey.status !== 'voyage') return { status: 'rejected', reason: 'not_in_voyage' };
+      if (stage.order !== odyssey.current_stage_order) return { status: 'rejected', reason: 'not_current_target' };
+      if (!manual && (position === null || !isWithinStage(position, stage))) {
+        return { status: 'rejected', reason: 'too_far' };
+      }
+
+      stage.cleared_at = new Date().toISOString();
+      stage.cleared_by = memberId;
+
+      // `crew`: every member earns the stage's Drachma. `arriver`: only the member who cleared it
+      // (none if that id is not a member; the stage still clears).
+      const earners = odyssey.points_mode === 'arriver' ? members.filter((m) => m.id === memberId) : members;
+      for (const m of earners) {
+        ledger.push({
+          id: `ledger-${ledger.length + 1}`,
+          odyssey_id: odyssey.id,
+          member_id: m.id,
+          stage_id: stage.id,
+          points: stage.points,
+          reason: 'stage_cleared',
+          created_at: new Date().toISOString(),
+        });
+      }
+
+      const next = stages.filter((s) => s.cleared_at === null).sort((a, b) => a.order - b.order)[0];
+      if (next === undefined) odyssey.status = 'complete';
+      else odyssey.current_stage_order = next.order;
+
+      listeners.forEach((l) => {
+        try {
+          l();
+        } catch {
+          // The clear is already committed: a throwing subscriber must not make it look failed.
+        }
+      });
+      return { status: 'cleared', stage: { ...stage } };
+    },
+
+    subscribe(_odysseyId, onChange) {
+      listeners.add(onChange);
+      return () => {
+        listeners.delete(onChange);
+      };
+    },
+  };
+}
