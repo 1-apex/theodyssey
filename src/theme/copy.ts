@@ -177,3 +177,32 @@ export const app = {
     unknown: 'Something went wrong. Try again.',
   } as Record<string, string>,
 };
+
+export const storyteller = {
+  title: 'Odysseus of Ithaca',
+  chapter: 'THE STORY BEGINS',
+  greeting: 'Come closer, traveler. Tell me, where do you wish to wander?',
+  prompts: [
+    'A fine destination. From which harbor will your crew set sail?',
+    'How many travelers will join you, Captain? Give me a number from 1 to 20.',
+    'How long shall you wander? Tell me the number of days or your travel dates.',
+    'What does your crew seek along the way? Tell me of food, wild places, stories, or anything else.',
+    'One last thing, traveler. What name shall your crew call their Captain?',
+    'A worthy tale is taking shape. Shall we summon the Oracle to chart your course?',
+  ],
+  placeholder: 'Tell him where you wish to wander…',
+  nicknamePlaceholder: 'Your Captain nickname',
+  reply: 'Reply',
+  summon: '✦ Summon the Oracle',
+  crewError: 'Enter the number of travelers, from 1 to 20.',
+  nameError: 'Your Captain nickname must be 1 to 24 characters.',
+  answerTooLong: 'Please keep your answer within the displayed limit.',
+  edit: 'Start over',
+  demo: 'Guided conversation · The Oracle will chart your route',
+  conversation: 'Odysseus says',
+  answer: 'Your answer',
+  progress: (n: number, total: number) => `QUESTION ${n} OF ${total}`,
+  answerLabel: 'Your reply to Odysseus',
+  portrait: 'Odysseus, the old sailor, seated on a cloud',
+  brief: (crew: string, interests: string) => `Travelers and duration: ${crew}\nInterests and preferences: ${interests}`,
+} as const;

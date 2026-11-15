@@ -17,7 +17,7 @@ function Screens() {
       <Stack.Screen name="index" />
       {/* Everything else in the game needs a username; signed out, these fall back to the front door. */}
       <Stack.Protected guard={status === 'signedIn'}>
-        <Stack.Screen name="create" />
+        <Stack.Screen name="storyteller" />
         <Stack.Screen name="join" />
         <Stack.Screen name="odyssey/[id]" />
       </Stack.Protected>

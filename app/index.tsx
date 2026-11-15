@@ -40,7 +40,7 @@ function Home() {
       <HomeArt />
       <View style={{ marginTop: 'auto' }}>
         {!isSupabaseConfigured && <T style={s.error}>{app.notConfigured}</T>}
-        <Button title={c.begin} onPress={() => router.push('/create')} />
+        <Button title={c.begin} onPress={() => router.push('/storyteller')} />
         <Button title={c.join} onPress={() => router.push('/join')} secondary />
         {username !== null && <T style={s.hint}>{app.auth.signedInAs(username)}</T>}
         <T accessibilityRole="button" onPress={() => void signOut()} style={[s.hint, { textDecorationLine: 'underline' }]}>
