@@ -5,7 +5,7 @@
 // The function is stateless: every call gets the whole transcript and
 // re-extracts the whole trip draft.
 
-import { askGemini, GeminiError, type GeminiKeys } from '../_shared/gemini.ts';
+import { askGemini, GeminiError, retryKeys, type GeminiKeys } from '../_shared/gemini.ts';
 
 export type { GeminiKeys };
 
@@ -235,7 +235,7 @@ export async function chatWithOdysseus(messages: ChatMessage[], keys: GeminiKeys
     return await askOnce(messages, keys);
   } catch (e) {
     if (!(e instanceof ChatError)) throw e;
-    console.warn(`odysseus attempt 1 failed [${e.code}], retrying: ${e.message}`);
-    return await askOnce(messages, keys);
+    console.warn(`odysseus attempt 1 failed [${e.code}], retrying on the fallback model: ${e.message}`);
+    return await askOnce(messages, retryKeys(keys));
   }
 }
