@@ -927,15 +927,16 @@ async function failurePaths() {
   await say(wanderer, 'Big Bend National Park, TX');
   check('First failure: in-character error and Try again', (await wanderer.waitFor('The winds swallowed my words', 20000)) && (await wanderer.buttonDisabled('Try again')) === false);
   await wanderer.press('Try again');
-  check('Second failure in a row: the scripted Odysseus takes over', await wanderer.waitFor('The sea-winds drown out the gods', 20000));
+  check('Second failure in a row: the scripted Odysseus takes over', await wanderer.waitFor('The winds have scattered my words', 20000));
   check('The error and Try again are gone', !(await wanderer.has('The winds swallowed my words')) && (await wanderer.buttonDisabled('Try again')) === null);
-  check('He asks for the next missing thing (the harbor), since the first message answered "where to"', await wanderer.waitFor('From which harbor will your crew set sail?'));
+  check('He asks for the first missing thing (the destination); the unanswered message is not taken as an answer', await wanderer.waitFor('where do you wish to wander?'));
   check('The model was called exactly 4 times for the 2 failures', mock.chatCalls.length - calls0 === 4, mock.chatCalls.length - calls0);
   check('The failing mode was used up', (await ctl('')).failChat === 0);
   await wanderer.shot('fallback-scripted');
   const scriptedCalls = mock.chatCalls.length;
   const waitDone = () => wanderer.waitUntil(`return all('[aria-label*=" says: "]').every((e) => ![...e.querySelectorAll('*')].some((n) => getComputedStyle(n).color === 'rgba(0, 0, 0, 0)' && n.textContent !== ''));`, 8000);
   const scriptedTurns = [
+    ['Big Bend National Park, TX', 'From which harbor will your crew set sail?'],
     ['Arlington, TX', 'How many travelers will join you'],
     ['four of us', 'How long shall you wander'],
     ['two days', 'What does your crew seek along the way'],
