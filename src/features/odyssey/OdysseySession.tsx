@@ -62,6 +62,12 @@ export function OdysseySession({ odysseyId, children, renderState }: OdysseySess
   const [attempt, setAttempt] = useState(0);
   const [gps, setGps] = useState<GpsSource | null>(null);
   const [lastResult, setLastResult] = useState<ClearStageResult | null>(null);
+  // A later "already cleared" for the same stage (the other path raced us) must not replace "cleared".
+  const setResult = useCallback((next: ClearStageResult) => {
+    setLastResult((prev) =>
+      prev !== null && prev.status === 'cleared' && next.status === 'already_cleared' && prev.stage.id === next.stage.id ? prev : next,
+    );
+  }, []);
 
   useEffect(() => {
     let live = true;
@@ -114,8 +120,8 @@ export function OdysseySession({ odysseyId, children, renderState }: OdysseySess
     () =>
       simulate === null
         ? null
-        : { mode: gps === null ? 'simulate' : 'gps', simulate, startGps, stopGps, lastResult, report: setLastResult },
-    [simulate, gps, startGps, stopGps, lastResult],
+        : { mode: gps === null ? 'simulate' : 'gps', simulate, startGps, stopGps, lastResult, report: setResult },
+    [simulate, gps, startGps, stopGps, lastResult, setResult],
   );
 
   if (ready === null || travel === null) {
@@ -126,7 +132,7 @@ export function OdysseySession({ odysseyId, children, renderState }: OdysseySess
   return (
     <VoyageProvider backend={supabaseBackend} source={gps ?? ready.simulate} memberId={ready.memberId}>
       <TravelContext.Provider value={travel}>
-        <ArrivalWatcher odysseyId={odysseyId} onResult={setLastResult} />
+        <ArrivalWatcher odysseyId={odysseyId} onResult={setResult} />
         {children}
       </TravelContext.Provider>
     </VoyageProvider>

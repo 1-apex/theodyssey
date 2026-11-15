@@ -12,18 +12,7 @@
 // the function has no npm dependencies to download or bundle.
 
 import { consultOracle, OracleError, type OracleRequest } from './oracle.ts';
-
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
-
-const json = (body: unknown, status = 200): Response =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { ...CORS, 'Content-Type': 'application/json' },
-  });
+import { callerId, CORS, fail, json, serviceKey } from '../_shared/http.ts';
 
 // ---------------------------------------------------------------------------
 // Supabase access. The service key bypasses RLS, so every query below is
@@ -31,29 +20,6 @@ const json = (body: unknown, status = 200): Response =>
 // ---------------------------------------------------------------------------
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
-
-/** Hosted projects inject SUPABASE_SECRET_KEYS; the local CLI injects the legacy name. */
-function serviceKey(): string {
-  const legacy = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SUPABASE_SECRET_KEY');
-  if (legacy) return legacy;
-  try {
-    return JSON.parse(Deno.env.get('SUPABASE_SECRET_KEYS') ?? '{}').default ?? '';
-  } catch {
-    return '';
-  }
-}
-
-/** Returns the caller's user id, or null if the JWT is missing or invalid. */
-async function callerId(req: Request, key: string): Promise<string | null> {
-  const authorization = req.headers.get('Authorization');
-  if (!authorization) return null;
-  const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    headers: { apikey: key, Authorization: authorization },
-  });
-  if (!res.ok) return null;
-  const user = await res.json();
-  return typeof user?.id === 'string' ? user.id : null;
-}
 
 class DbError extends Error {
   code: string | undefined;
@@ -91,9 +57,6 @@ interface Body extends OracleRequest {
   nickname?: string;
   avatar_id?: string;
 }
-
-const fail = (status: number, error: string, message: string): Response =>
-  json({ error, message }, status);
 
 const str = (v: unknown, max: number): string | null =>
   typeof v === 'string' && v.trim() !== '' && v.trim().length <= max ? v.trim() : null;
@@ -172,7 +135,7 @@ Deno.serve(async (req) => {
     return fail(500, 'not_configured', 'The Oracle is not configured');
   }
 
-  const captainId = await callerId(req, key);
+  const captainId = await callerId(req, SUPABASE_URL, key);
   if (!captainId) return fail(401, 'not_authenticated', 'Sign in first');
 
   const body = parseBody(await req.json().catch(() => null));

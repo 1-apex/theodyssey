@@ -39,15 +39,16 @@ On a network that inspects TLS, prefix commands that download packages with `NOD
 
 ```
 npm test                         # game logic unit tests
+npm run test:functions           # Edge Function unit tests (Node's test runner, no Deno needed)
 npm run typecheck
 npm run lint
 npx supabase start               # local backend in Docker
 npx supabase test db             # database tests
 node supabase/scratch/e2e.ts --local    # backend over HTTP
-node scripts/app-e2e.mjs         # the real UI in headless Chrome, as two phones
+npm run test:app                 # the real UI in headless Chrome (node scripts/app-e2e.mjs)
 ```
 
-`scripts/app-e2e.mjs` builds the web app against the local stack and plays a whole Odyssey through the screens. Options are listed at the top of the file.
+`npm run test:app` builds the web app against the local stack and plays a whole Odyssey through the screens as separate accounts: sign-up, profile, the chat with Odysseus, summon, lobby, join, every stage, Ithaca, sign out. It starts its own mock LLM and geocoder and `supabase functions serve` pointed at them (needs Docker and `npx supabase start`; no API keys or internet), and stops them when done. Options (`--mode=open`, `--points=arriver`, `--skip-build`, `--out=`, `--no-extras`) are listed at the top of the file.
 
 ## Layout
 

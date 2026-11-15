@@ -199,3 +199,48 @@ export type RpcErrorMessage =
   | 'odyssey_not_ready' // set_sail while still forging
   | 'invalid_visibility_mode'
   | 'invalid_points_mode';
+
+// ---------------------------------------------------------------------------
+// odysseus-chat Edge Function (one turn of the Odysseus conversation)
+// ---------------------------------------------------------------------------
+
+export interface ChatMessage {
+  role: 'traveler' | 'odysseus';
+  /** 1 to 500 characters after trimming. */
+  text: string;
+}
+
+/** Everything learned so far, re-extracted from the whole conversation each call. Unknown is null. */
+export interface TripDraft {
+  start: string | null;
+  destination: string | null;
+  /** Integer 1 to 20. */
+  crew_size: number | null;
+  duration: string | null;
+  travel_style: string | null;
+  visibility_mode: 'open' | 'fog' | null;
+}
+
+/** `POST /functions/v1/odysseus-chat`. 1 to 40 messages, oldest first, the last one from the traveler. */
+export interface OdysseusChatRequest {
+  messages: ChatMessage[];
+}
+
+export interface OdysseusChatResponse {
+  /** What Odysseus says next. Plain text, about 350 characters at most. */
+  reply: string;
+  trip: TripDraft;
+  /** Start and destination are known and Odysseus has finished asking: show "Summon the Oracle". */
+  ready: boolean;
+  /** False when the traveler's last message was not about planning the trip. */
+  on_topic: boolean;
+}
+
+/** Error codes of odysseus-chat, in `{ error, message }`. */
+export type OdysseusChatErrorCode =
+  | 'invalid_request'
+  | 'not_authenticated'
+  | 'llm_failed'
+  | 'llm_bad_output'
+  | 'not_configured'
+  | 'internal';

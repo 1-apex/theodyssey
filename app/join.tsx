@@ -12,9 +12,9 @@ import { app, c } from '@/theme/copy';
 export default function Join() {
   const [code, setCode] = useState('');
   // The nickname starts as the player's username; they can still change it for this crew.
-  const { username } = useAuth();
+  const { username, avatar: profileAvatar } = useAuth();
   const [name, setName] = useState(username ?? '');
-  const [avatar, setAvatar] = useState(1);
+  const [avatar, setAvatar] = useState(profileAvatar);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 

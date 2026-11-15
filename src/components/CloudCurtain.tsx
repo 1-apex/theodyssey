@@ -3,47 +3,16 @@
 // Lives above the navigator so it survives a change of screen.
 
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
-import { AccessibilityInfo, Animated, Platform, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import Svg, { Rect } from 'react-native-svg';
+import { AccessibilityInfo, Animated, Easing, Platform, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { fonts } from '../theme/typography';
-import { CLOUD_ROWS } from './PixelCloud';
-
-const COLS = 33;
-const ROWS = 18;
-const palette: Record<string, string> = { o: '#3b5276', H: '#f2f4dc', L: '#b9d6dc', S: '#7da1bc' };
-
-// The sprite as horizontal runs of one colour: about 60 rectangles instead of 400.
-const RUNS = CLOUD_ROWS.flatMap((row, y) => {
-  const runs: { x: number; y: number; w: number; fill: string }[] = [];
-  let x = 0;
-  while (x < row.length) {
-    const ch = row[x];
-    let end = x + 1;
-    while (end < row.length && row[end] === ch) end++;
-    if (ch !== '.') runs.push({ x, y, w: end - x, fill: palette[ch] });
-    x = end;
-  }
-  return runs;
-});
-
-function BigCloud({ width }: { width: number }) {
-  return (
-    <Svg width={width} height={(width * ROWS) / COLS} viewBox={`0 0 ${COLS} ${ROWS}`}>
-      {RUNS.map((r) => (
-        <Rect key={`${r.x}-${r.y}`} x={r.x} y={r.y} width={r.w} height={1} fill={r.fill} />
-      ))}
-    </Svg>
-  );
-}
+import { BigCloud, CLOUD_COLS as COLS, CLOUD_ROW_COUNT as ROWS } from './BigCloud';
 
 const ROW_OFFSET = [0.3, 0.75, 0.1, 0.55, 0.9];
 const CLOUD_SIZE = [1, 0.74, 1.12, 0.86];
 
 const CLOSE_MS = 1100;
 const OPEN_MS = 900;
-/** Movement snaps between a few positions, like sprite animation on old hardware. */
-const stepped = (steps: number) => (t: number) => Math.round(t * steps) / steps;
 
 export interface CloudCurtain {
   /** Clouds roll in. Resolves once the screen is fully covered. */
@@ -69,7 +38,7 @@ export function CloudCurtainProvider({ children }: { children: ReactNode }) {
         const animation = Animated.timing(progress, {
           toValue,
           duration: reduced ? 150 : duration,
-          easing: stepped(reduced ? 1 : 14),
+          easing: reduced ? Easing.linear : Easing.inOut(Easing.cubic),
           useNativeDriver: Platform.OS !== 'web',
         });
         running.current = animation;
@@ -134,6 +103,8 @@ export function CloudCurtainProvider({ children }: { children: ReactNode }) {
             return (
               <Animated.View
                 key={row}
+                renderToHardwareTextureAndroid
+                shouldRasterizeIOS
                 style={[
                   styles.row,
                   {

@@ -17,7 +17,7 @@ export default function Preview() {
   const odyssey = useOdyssey(id);
   const stages = useVisibleStages(id);
   const total = useStageCount(id);
-  if (odyssey === null || stages === null || total === null) return <Notice text={app.loading} />;
+  if (odyssey === null || stages === null || total === null) return <Notice loading text={app.loading} />;
 
   const fog = odyssey.visibility_mode === 'fog';
   const byOrder = new Map(stages.map((stage) => [stage.order, stage]));

@@ -4,6 +4,10 @@
 // Deno Edge Function and in the Node scratch script (supabase/scratch).
 // No DB access here; index.ts owns persistence.
 
+import { askGemini, DEFAULT_MODEL, GeminiError, type GeminiKeys } from '../_shared/gemini.ts';
+
+export { DEFAULT_MODEL };
+
 export interface OracleRequest {
   start: string;
   destination: string;
@@ -12,13 +16,9 @@ export interface OracleRequest {
   duration: string;
 }
 
-export interface OracleKeys {
-  llmApiKey: string;
+export interface OracleKeys extends GeminiKeys {
   geocodingApiKey: string;
-  /** Gemini model id. Defaults to DEFAULT_MODEL. */
-  model?: string;
-  /** Override the API hosts. Only for tests against a mock server. */
-  llmBaseUrl?: string;
+  /** Override the geocoding host. Only for tests against a mock server. */
   geocodingBaseUrl?: string;
 }
 
@@ -59,10 +59,6 @@ export class OracleError extends Error {
   }
 }
 
-// Cheapest Gemini text model open to new API keys as of 2026-11 ($0.25 in /
-// $1.50 out per 1M tokens, has a free tier). gemini-2.5-flash-lite is cheaper
-// but returns 404 for new accounts. Override with the LLM_MODEL secret.
-export const DEFAULT_MODEL = 'gemini-3.1-flash-lite';
 const MIN_STAGES = 3;
 const STAGE_POINTS = 100;
 const ITHACA_POINTS = 250;
@@ -134,56 +130,19 @@ function userPrompt(req: OracleRequest): string {
   ].join('\n');
 }
 
-/** Pulls the model's text out of an Interaction resource. */
-function outputText(interaction: unknown): string {
-  const steps = (interaction as { steps?: unknown }).steps;
-  if (!Array.isArray(steps)) return '';
-  let text = '';
-  for (const step of steps) {
-    if (step?.type !== 'model_output' || !Array.isArray(step.content)) continue;
-    for (const part of step.content) {
-      if (part?.type === 'text' && typeof part.text === 'string') text += part.text;
-    }
-  }
-  return text;
-}
-
 export async function askOracle(req: OracleRequest, keys: OracleKeys): Promise<LlmRoute> {
-  const base = keys.llmBaseUrl ?? 'https://generativelanguage.googleapis.com';
-  const res = await fetch(`${base}/v1beta/interactions`, {
-    method: 'POST',
-    headers: {
-      'x-goog-api-key': keys.llmApiKey,
-      'Content-Type': 'application/json',
-      'Api-Revision': '2026-05-20',
-    },
-    body: JSON.stringify({
-      model: keys.model ?? DEFAULT_MODEL,
-      system_instruction: SYSTEM_INSTRUCTION,
-      input: userPrompt(req),
-      response_format: { type: 'text', mime_type: 'application/json', schema: ROUTE_SCHEMA },
-      store: false,
-    }),
-  });
-
-  const raw = await res.text();
-  if (!res.ok) {
-    throw new OracleError('llm_failed', `LLM returned ${res.status}: ${raw.slice(0, 500)}`);
-  }
-
-  let route: LlmRoute;
+  let data: unknown;
+  let raw: string;
   try {
-    const interaction = JSON.parse(raw);
-    if (interaction.status !== 'completed') {
-      throw new Error(`status ${interaction.status}`);
-    }
-    route = JSON.parse(outputText(interaction));
+    ({ data, raw } = await askGemini(
+      { system: SYSTEM_INSTRUCTION, input: userPrompt(req), schema: ROUTE_SCHEMA },
+      keys,
+    ));
   } catch (e) {
-    throw new OracleError(
-      'llm_bad_output',
-      `Could not read LLM output (${(e as Error).message}): ${raw.slice(0, 500)}`,
-    );
+    if (e instanceof GeminiError) throw new OracleError(e.code, e.message);
+    throw e;
   }
+  const route = data as LlmRoute;
 
   if (typeof route?.title !== 'string' || !Array.isArray(route?.stages)) {
     throw new OracleError('llm_bad_output', `LLM output missing title or stages: ${raw.slice(0, 500)}`);

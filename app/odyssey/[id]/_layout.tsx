@@ -16,7 +16,7 @@ export default function OdysseyLayout() {
           return <Notice text={app.notCrew} action={app.goJoin} onAction={() => router.replace('/join')} />;
         }
         if (state === 'error') return <Notice text={app.loadFailed} action={app.retry} onAction={retry} />;
-        return <Notice text={app.loading} />;
+        return <Notice loading text={app.loading} />;
       }}
     >
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#001c33' } }} />

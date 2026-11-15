@@ -23,7 +23,7 @@ export default function Lobby() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  if (odyssey === null || crew === null) return <Notice text={app.loading} />;
+  if (odyssey === null || crew === null) return <Notice loading text={app.loading} />;
   // Everyone leaves the lobby together when the Captain sets sail.
   if (odyssey.status === 'voyage') return <Redirect href={{ pathname: '/odyssey/[id]/voyage', params: { id } }} />;
   if (odyssey.status === 'complete') return <Redirect href={{ pathname: '/odyssey/[id]/ithaca', params: { id } }} />;
