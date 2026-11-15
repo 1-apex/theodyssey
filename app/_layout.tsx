@@ -1,5 +1,6 @@
 import { PressStart2P_400Regular } from '@expo-google-fonts/press-start-2p';
 import { GideonRoman_400Regular } from '@expo-google-fonts/gideon-roman';
+import { IMFellEnglishSC_400Regular } from '@expo-google-fonts/im-fell-english-sc';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -29,7 +30,7 @@ function Screens() {
 }
 
 export default function RootLayout() {
-  const [loaded, error] = useFonts({ PressStart2P_400Regular, GideonRoman_400Regular });
+  const [loaded, error] = useFonts({ PressStart2P_400Regular, GideonRoman_400Regular, IMFellEnglishSC_400Regular });
   if (!loaded && !error) return null;
   return (
     <AuthProvider>

@@ -8,11 +8,12 @@ import { ArrivalArt, Border } from '@/components/PixelScene';
 import { Button, Notice, Shell, T, s } from '@/components/ui';
 import { useCrew } from '@/features/crew/useCrew';
 import { avatarIndex } from '@/features/odyssey/api';
+import { regionOf, shortPlaceName } from '@/features/odyssey/placeNames';
 import { useOdyssey } from '@/features/odyssey/useOdyssey';
 import { useStageCount } from '@/features/odyssey/useStageCount';
 import { useVisibleStages } from '@/features/odyssey/useVisibleStages';
 import { usePoints } from '@/features/points/usePoints';
-import { app, c } from '@/theme/copy';
+import { app, c, map } from '@/theme/copy';
 
 export default function Ithaca() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -33,7 +34,10 @@ export default function Ithaca() {
       <Border />
       <T style={[s.logo, { fontSize: 24, textAlign: 'center' }]}>ITHACA!</T>
       <Border />
-      <T style={[s.text, { textAlign: 'center', marginVertical: 20 }]}>{app.complete(odyssey.title)}</T>
+      <T style={[s.text, { textAlign: 'center', marginTop: 20 }]}>{app.complete(odyssey.title)}</T>
+      <T style={[s.text, { textAlign: 'center', fontSize: 14, color: '#c1e6ed', marginBottom: 20 }]}>
+        {map.route(odyssey.start_name, odyssey.destination_name)}
+      </T>
       <View style={s.parchment}>
         <T style={[s.darkTitle, { textAlign: 'center' }]}>{c.finishTitle}</T>
         <T style={s.dark}>{c.finishSub}</T>
@@ -57,8 +61,8 @@ export default function Ithaca() {
         <View key={stage.id} style={s.stageRow}>
           <View style={{ flex: 1 }}>
             <T style={s.stageNumber}>{app.stageLabel(stage.order, stage.order === total)}</T>
-            <T style={s.stageName}>{stage.title}</T>
-            <T style={s.stageDescription}>{stage.name}</T>
+            <T style={s.stageName}>{shortPlaceName(stage.name)}</T>
+            {regionOf(stage.name) !== '' && <T style={s.stageDescription}>{regionOf(stage.name)}</T>}
           </View>
           <T style={s.reward}>{app.reward(stage.points)}</T>
         </View>

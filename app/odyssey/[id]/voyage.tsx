@@ -1,14 +1,13 @@
-// The voyage: pixel map, the island being sailed for, and the two ways to arrive.
+// The voyage: the treasure map, the next stage, and the ways to arrive.
 
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
-import { DestinationMapsButton } from '@/components/DestinationMapsButton';
-import { VoyageMap } from '@/components/PixelScene';
+import { TreasureMap } from '@/components/TreasureMap';
 import { Bar, Button, Notice, Shell, T, s } from '@/components/ui';
+import { formatMiles } from '@/features/location/distance';
 import { currentTarget, distanceToTargetM } from '@/features/location/geofence';
-import { openInMaps } from '@/features/location/openInMaps';
 import { useManualArrival } from '@/features/location/useArrival';
 import { useLocation } from '@/features/location/useLocation';
 import type { ClearStageResult } from '@/features/odyssey/backend';
@@ -17,11 +16,17 @@ import { useOdyssey } from '@/features/odyssey/useOdyssey';
 import { useStageCount } from '@/features/odyssey/useStageCount';
 import { useVisibleStages } from '@/features/odyssey/useVisibleStages';
 import { usePoints } from '@/features/points/usePoints';
-import { app, c } from '@/theme/copy';
+import { useReducedMotion } from '@/features/storyteller/useReducedMotion';
+import { StageSheet } from '@/features/voyageMap/StageSheet';
+import { VoyageProgress } from '@/features/voyageMap/VoyageProgress';
+import { haversineM } from '@/lib/geo';
+import { shortPlaceName } from '@/features/odyssey/placeNames';
+import { app, c, map } from '@/theme/copy';
+import { fonts } from '@/theme/typography';
 
 function describe(result: ClearStageResult): string {
-  if (result.status === 'cleared') return app.cleared(result.stage.title, result.stage.points);
-  if (result.status === 'already_cleared') return app.alreadyCleared(result.stage.title);
+  if (result.status === 'cleared') return app.cleared(shortPlaceName(result.stage.name), result.stage.points);
+  if (result.status === 'already_cleared') return app.alreadyCleared(shortPlaceName(result.stage.name));
   return app.rejected[result.reason];
 }
 
@@ -36,6 +41,8 @@ export default function Voyage() {
   const arrive = useManualArrival(id);
   const [busy, setBusy] = useState<'sailing' | 'arriving' | null>(null);
   const [notice, setNotice] = useState('');
+  const [selected, setSelected] = useState<number | null>(null);
+  const reducedMotion = useReducedMotion();
 
   if (odyssey === null || stages === null || total === null || points === null) return <Notice loading text={app.loading} />;
   if (odyssey.status === 'lobby') return <Redirect href={{ pathname: '/odyssey/[id]/lobby', params: { id } }} />;
@@ -84,41 +91,35 @@ export default function Voyage() {
   const lastIsStale = last !== null && last.status !== 'rejected' && last.stage.order < latestCleared;
   const message = notice || (last !== null && !lastIsStale ? describe(last) : '');
 
+  const fog = odyssey.visibility_mode === 'fog';
+  const routeEnd = fog && !complete ? map.hiddenInFog : odyssey.destination_name;
+  const sheetStage = selected === null ? null : (stages.find((stage) => stage.order === selected) ?? null);
+  const sheetState = sheetStage === null ? 'ahead' : sheetStage.cleared_at !== null ? 'cleared' : sheetStage.id === target?.id ? 'current' : 'ahead';
+  const sheetDistanceM = position !== null && sheetStage !== null ? Math.max(0, haversineM(position, sheetStage) - sheetStage.radius_m) : null;
+
   return (
     <Shell>
       <Bar title={odyssey.title} onBack={() => router.replace('/')} />
+      <T style={st.route}>{map.route(odyssey.start_name, routeEnd)}</T>
       <View style={s.stats}>
-        <T style={s.statsText}>{complete ? c.voyageComplete : app.stageOf(Math.min(cleared + 1, total), total)}</T>
-        <T style={s.statsText}>{app.drachma(points.myTotal)}</T>
+        <T style={st.statsText}>{complete ? c.voyageComplete : app.stageOf(Math.min(cleared + 1, total), total)}</T>
+        <T style={st.statsText}>{app.drachma(points.myTotal)}</T>
       </View>
-      <View style={s.progress}>
-        <View style={[s.progressFill, { width: `${(cleared / total) * 100}%` }]} />
-      </View>
-      <VoyageMap
+      <VoyageProgress cleared={cleared} total={total} reducedMotion={reducedMotion} />
+      <TreasureMap
         total={total}
-        stages={stages.map((stage) => ({ order: stage.order, title: stage.title, cleared: stage.cleared_at !== null }))}
-        currentOrder={odyssey.current_stage_order}
-        shipAt={cleared}
-        harbor={odyssey.start_name}
+        stages={stages}
+        harbour={odyssey.start_name}
+        targetOrder={target?.order ?? null}
+        travelling={busy === 'sailing'}
+        onSelectStop={setSelected}
       />
-      <T style={s.arrivalHint}>{c.arrivalHint}</T>
       {!!message && <T accessibilityLabel="voyage-message" style={[s.arrivalHint, { color: '#ffcf91' }]}>{message}</T>}
 
       {target !== null && (
-        <View style={s.stageRow}>
-          <View style={{ flex: 1 }}>
-            <T style={s.stageNumber}>{app.currentStage(target.order)}</T>
-            <View style={s.destinationRow}>
-              <View style={{ flex: 1 }}>
-                <T style={s.stageName}>{target.title}</T>
-                <T style={s.stageDescription}>{target.name}</T>
-              </View>
-              <DestinationMapsButton onPress={() => openInMaps(target)} />
-            </View>
-            <T style={s.stageDescription}>{target.lore}</T>
-            {distanceM !== null && <T style={s.reward}>{app.distance((distanceM / 1000).toFixed(1))}</T>}
-          </View>
-        </View>
+        <Pressable accessibilityRole="button" accessibilityHint={map.nextHint} onPress={() => setSelected(target.order)} style={st.next}>
+          <T style={st.nextText}>{map.next(shortPlaceName(target.name), distanceM !== null ? formatMiles(distanceM) : null)}</T>
+        </Pressable>
       )}
 
       <View style={s.space}>
@@ -145,6 +146,21 @@ export default function Voyage() {
           </>
         )}
       </View>
+      <StageSheet
+        stage={sheetStage}
+        state={sheetState}
+        total={total}
+        distanceM={sheetDistanceM}
+        reducedMotion={reducedMotion}
+        onClose={() => setSelected(null)}
+      />
     </Shell>
   );
 }
+
+const st = StyleSheet.create({
+  route: { fontSize: 14, lineHeight: 20, color: '#c1e6ed', marginTop: -6, marginBottom: 12 },
+  statsText: { fontFamily: fonts.numeral, fontSize: 17, lineHeight: 22, letterSpacing: 0.5, color: '#dfc48b' },
+  next: { borderWidth: 2, borderColor: '#b17000', backgroundColor: '#021630', paddingVertical: 10, paddingHorizontal: 14, minHeight: 44, justifyContent: 'center', marginBottom: 4 },
+  nextText: { fontFamily: fonts.numeral, fontSize: 18, lineHeight: 24, color: '#f0bb3b' },
+});
