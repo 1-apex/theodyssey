@@ -142,7 +142,7 @@ export type ClearStageOutcome =
 export interface ClearStageResult {
   result: ClearStageOutcome;
   stage_id: string;
-  /** Metres from the stage. Null for manual arrivals. */
+  /** Metres from the stage. Only set for `cleared` and `too_far` with a position; null otherwise. */
   distance_m: number | null;
   /** Drachma each paid member received from this call (0 unless `cleared`). Who is paid depends on points_mode. */
   points_awarded: number;
@@ -183,6 +183,7 @@ export type RpcErrorMessage =
   | 'not_crew'
   | 'stage_not_found'
   | 'position_required'
+  | 'invalid_position' // lat or lng out of range
   | 'invalid_join_code'
   | 'odyssey_not_joinable' // still forging, or already complete
   | 'invalid_nickname' // must be 1 to 24 characters

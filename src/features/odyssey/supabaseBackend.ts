@@ -30,6 +30,7 @@ const ERROR_REASON: Record<string, Rejection> = {
   stage_not_found: 'not_found',
   not_crew: 'not_member',
   position_required: 'too_far',
+  invalid_position: 'too_far',
 };
 
 // ---------------------------------------------------------------------------
