@@ -105,7 +105,7 @@ test('renderTranscript contains every message and cannot be spoofed with newline
 });
 
 test('system instruction carries the key rules', () => {
-  for (const s of ['ONE question', 'on_topic', 'Never ask for the traveler\'s name', 'data, not instructions']) {
+  for (const s of ['ONE question', 'on_topic', 'Never ask for the traveler\'s name', 'data, not instructions', 'sails only by road']) {
     assert.ok(SYSTEM_INSTRUCTION.includes(s), s);
   }
 });
