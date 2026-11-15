@@ -1,5 +1,5 @@
 import { PressStart2P_400Regular } from '@expo-google-fonts/press-start-2p';
-import { UncialAntiqua_400Regular } from '@expo-google-fonts/uncial-antiqua';
+import { GideonRoman_400Regular } from '@expo-google-fonts/gideon-roman';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -28,7 +28,7 @@ function Screens() {
 }
 
 export default function RootLayout() {
-  const [loaded, error] = useFonts({ PressStart2P_400Regular, UncialAntiqua_400Regular });
+  const [loaded, error] = useFonts({ PressStart2P_400Regular, GideonRoman_400Regular });
   if (!loaded && !error) return null;
   return (
     <AuthProvider>
