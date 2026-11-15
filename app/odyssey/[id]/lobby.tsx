@@ -12,7 +12,8 @@ import { avatarIndex, setSail, toApiError } from '@/features/odyssey/api';
 import { refreshOdyssey } from '@/features/odyssey/supabaseBackend';
 import { useOdyssey } from '@/features/odyssey/useOdyssey';
 import { useVoyageContext } from '@/features/odyssey/VoyageProvider';
-import { app, c } from '@/theme/copy';
+import { app, c, map } from '@/theme/copy';
+import { sz } from '@/theme/scale';
 
 export default function Lobby() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -59,7 +60,10 @@ export default function Lobby() {
       <View style={[s.parchment, { alignItems: 'center' }]}>
         <T style={s.mode}>{odyssey.visibility_mode === 'fog' ? c.fogOdyssey : c.openOdyssey}</T>
         <T style={[s.darkTitle, { textAlign: 'center' }]}>{odyssey.title}</T>
-        <T style={[s.dark, { marginTop: 12, textAlign: 'center' }]}>{c.share}</T>
+        <T style={[s.dark, { textAlign: 'center' }]}>
+          {map.route(odyssey.start_name, odyssey.visibility_mode === 'fog' ? map.hiddenInFog : odyssey.destination_name)}
+        </T>
+        <T style={[s.dark, { marginTop: sz(12), textAlign: 'center' }]}>{c.share}</T>
         <View style={s.codeRow}>
           <T selectable accessibilityLabel={c.joinCode} style={s.codeText}>
             {odyssey.join_code}

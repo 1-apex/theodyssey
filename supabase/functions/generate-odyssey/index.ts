@@ -11,8 +11,8 @@
 // No imports beyond the Oracle: Auth and PostgREST are called with fetch, so
 // the function has no npm dependencies to download or bundle.
 
-import { consultOracle, OracleError, type OracleRequest } from './oracle.ts';
-import { retryKeys } from '../_shared/gemini.ts';
+import { consultOracle, OracleError, type OracleRequest, type TravelMode } from './oracle.ts';
+import { modelFor, retryKeys } from '../_shared/gemini.ts';
 import { callerId, CORS, fail, json, serviceKey } from '../_shared/http.ts';
 
 // ---------------------------------------------------------------------------
@@ -53,6 +53,7 @@ async function db(
 }
 
 interface Body extends OracleRequest {
+  travel_mode: TravelMode;
   visibility_mode: 'open' | 'fog';
   points_mode: 'crew' | 'arriver';
   nickname?: string;
@@ -79,6 +80,9 @@ function parseBody(raw: unknown): Body | string {
     return 'points_mode must be "crew" or "arriver"';
   }
 
+  const travel_mode = b.travel_mode ?? 'road';
+  if (travel_mode !== 'road' && travel_mode !== 'flight') return 'travel_mode must be "road" or "flight"';
+
   const crew = Number(b.crew_size ?? 2);
   const nickname = b.nickname === undefined ? undefined : str(b.nickname, 24);
   const avatar_id = b.avatar_id === undefined ? undefined : str(b.avatar_id, 40);
@@ -94,6 +98,7 @@ function parseBody(raw: unknown): Body | string {
     crew_size: Number.isFinite(crew) ? Math.min(Math.max(Math.round(crew), 1), 20) : 2,
     travel_style: str(b.travel_style, 1000) ?? 'a balanced mix of sights and food',
     duration: str(b.duration, 60) ?? 'flexible',
+    travel_mode,
     visibility_mode: b.visibility_mode,
     points_mode,
     nickname,
@@ -171,7 +176,7 @@ Deno.serve(async (req) => {
     const result = await consultWithRetry(body, {
       llmApiKey,
       geocodingApiKey,
-      model: Deno.env.get('LLM_MODEL') ?? undefined,
+      model: modelFor('planner', (n) => Deno.env.get(n)),
       llmBaseUrl: Deno.env.get('LLM_BASE_URL') ?? undefined,
       geocodingBaseUrl: Deno.env.get('GEOCODING_BASE_URL') ?? undefined,
     });

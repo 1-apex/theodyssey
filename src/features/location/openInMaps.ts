@@ -1,8 +1,9 @@
 import { Linking } from 'react-native';
 
-import type { LatLng } from '../../lib/types';
+import type { LatLng, Stage } from '../../lib/types';
+import { mapsPlaceUrl } from './mapsUrl';
 
-/** Opens the device's maps app (or the browser) at a stage's coordinates. */
-export function openInMaps({ lat, lng }: LatLng): void {
-  void Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`).catch(() => {});
+/** Opens the device's maps app (or the browser) on the stage's place, found by its real name, so the player sees the place card and can get directions. */
+export function openInMaps(stage: Pick<Stage, 'name'> & Partial<LatLng>): void {
+  void Linking.openURL(mapsPlaceUrl(stage)).catch(() => {});
 }

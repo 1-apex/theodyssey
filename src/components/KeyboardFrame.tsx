@@ -8,7 +8,7 @@
  * - footer?:    pinned directly above the keyboard when it is open, above the bottom safe area when closed.
  * - stickToEnd?: scroll to the bottom whenever the content grows, the area is resized or the keyboard opens.
  *
- * Ocean background like Shell; content is capped at 448 wide and centred.
+ * Ocean background like Shell; content is capped at CONTENT_MAX_WIDTH (448 on phones, wider on tablets) and centred.
  * Mechanism: KeyboardAvoidingView behavior="padding" on iOS and Android (Android is edge-to-edge in
  * Expo, so the window does not resize; docs.expo.dev/guides/keyboard-handling). No-op on web.
  */
@@ -18,6 +18,7 @@ import { Keyboard, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View,
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { CONTENT_MAX_WIDTH } from '../theme/scale';
 import { SeaLines } from './PixelScene';
 import { colors } from './PixelSprite';
 
@@ -80,7 +81,7 @@ export function KeyboardFrame({
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors['ocean-deep'] },
-  column: { flex: 1, width: '100%', maxWidth: 448, alignSelf: 'center' },
+  column: { flex: 1, width: '100%', maxWidth: CONTENT_MAX_WIDTH, alignSelf: 'center' },
   scroll: { flex: 1 },
   content: { flexGrow: 1 },
 });

@@ -8,6 +8,7 @@ import {
   cleanInput,
   finishTyping,
   isBusy,
+  mergeTrip,
   receiveFailure,
   receiveReply,
   retry,
@@ -60,7 +61,7 @@ test('cleanInput caps at 500 characters', () => {
 
 test('a reply is appended, typed, and stores trip and ready; the next reply can hide ready', () => {
   let s = sendMessage(ready0(), 'Goa from Pune');
-  s = receiveReply(s, reply('Splendid.', { destination: 'Goa', start: 'Pune' }, true));
+  s = receiveReply(s, reply('Splendid.', { destination: 'Goa', start: 'Pune', travel_mode: 'road' }, true));
   assert.equal(s.waiting, false);
   assert.equal(s.ready, true);
   assert.equal(s.trip.destination, 'Goa');
@@ -68,7 +69,7 @@ test('a reply is appended, typed, and stores trip and ready; the next reply can 
   assert.equal(isBusy(s), true);
   s = finishTyping(s, s.typingId ?? -1);
   assert.equal(isBusy(s), false);
-  s = receiveReply(sendMessage(s, 'actually, somewhere else'), reply('Where?', {}, false));
+  s = receiveReply(sendMessage(s, 'actually, somewhere else'), reply('Where?', { start: 'Pune' }, false));
   assert.equal(s.ready, false);
 });
 
@@ -122,13 +123,13 @@ test('a first message with a destination and start is not misfiled by the switch
 
 test('ready from the server survives the switch and no new questions are asked', () => {
   let s = sendMessage(ready0(), 'Goa from Pune');
-  s = receiveReply(s, reply('Shall we sail?', { destination: 'Goa', start: 'Pune' }, true));
+  s = receiveReply(s, reply('Shall we sail?', { destination: 'Goa', start: 'Pune', travel_mode: 'road' }, true));
   s = finishTyping(s, s.typingId ?? -1);
   s = receiveFailure(retry(receiveFailure(sendMessage(s, 'yes'))));
   assert.equal(s.scripted, true);
   assert.equal(s.ready, true);
   assert.equal(s.asking, null);
-  assert.deepEqual(s.trip, { ...EMPTY_TRIP, destination: 'Goa', start: 'Pune' });
+  assert.deepEqual(s.trip, { ...EMPTY_TRIP, destination: 'Goa', start: 'Pune', travel_mode: 'road' });
   assert.equal(s.lines[s.lines.length - 1].text, storyteller.scriptedNotice + storyteller.scriptedDone);
   s = scriptedReply(sendMessage(finishTyping(s, s.typingId ?? -1), '3 of us'));
   assert.equal(s.ready, true);
@@ -166,6 +167,7 @@ test('the script runs destination, start, crew, duration, wishes, then becomes r
     duration: '2 days',
     travel_style: 'tacos and views',
     visibility_mode: null,
+    travel_mode: 'road', // the script never asks; it fills in the default when it finishes
   });
   // Chatting on after that just points at the button.
   s = scriptedReply(sendMessage(finishTyping(s, s.typingId ?? -1), 'thanks'));
@@ -214,13 +216,54 @@ test('tripToRequest applies the defaults and needs start and destination', () =>
     crew_size: 2,
     duration: '',
     travel_style: '',
+    travel_mode: 'road',
     visibility_mode: 'fog',
     points_mode: 'crew',
     nickname: 'amy',
     avatar_id: 'avatar_2',
   });
-  const full: TripDraft = { start: 'A', destination: 'B', crew_size: 5, duration: '3 days', travel_style: 'food', visibility_mode: 'open' };
+  const full: TripDraft = { start: 'A', destination: 'B', crew_size: 5, duration: '3 days', travel_style: 'food', visibility_mode: 'open', travel_mode: 'road' };
   const r = tripToRequest(full, 'amy', 'avatar_0');
   assert.equal(r?.crew_size, 5);
   assert.equal(r?.visibility_mode, 'open');
+  assert.equal(tripToRequest({ ...full, travel_mode: 'flight' }, 'amy', 'avatar_0')?.travel_mode, 'flight');
+});
+
+const KNOWN: Partial<TripDraft> = { destination: 'Goa', start: 'Pune', travel_mode: 'flight', crew_size: 3 };
+
+test('a degraded reply (all-null trip) keeps the draft and the ready state', () => {
+  let s = receiveReply(sendMessage(ready0(), 'Goa from Pune, flying, 3 of us'), reply('Shall we sail?', KNOWN, true));
+  s = finishTyping(s, s.typingId ?? -1);
+  s = receiveReply(sendMessage(s, '???'), reply('Say that once more, traveler.', {}, false));
+  assert.deepEqual(s.trip, { ...EMPTY_TRIP, ...KNOWN });
+  assert.equal(s.ready, true);
+  assert.equal(s.lines[s.lines.length - 1].text, 'Say that once more, traveler.');
+  assert.equal(tripToRequest(s.trip, 'amy', 'avatar_0')?.travel_mode, 'flight');
+});
+
+test('a degraded reply before anything is known leaves an empty, not ready draft', () => {
+  const s = receiveReply(sendMessage(ready0(), '???'), reply('Say that once more.', {}, false));
+  assert.deepEqual(s.trip, EMPTY_TRIP);
+  assert.equal(s.ready, false);
+});
+
+test('a reply with some fields is taken as the server sent it', () => {
+  let s = receiveReply(sendMessage(ready0(), 'Goa from Pune'), reply('ok', KNOWN, false));
+  s = finishTyping(s, s.typingId ?? -1);
+  s = receiveReply(sendMessage(s, 'actually Delhi'), reply('Delhi it is.', { destination: 'Delhi', start: 'Pune' }, false));
+  assert.deepEqual(s.trip, { ...EMPTY_TRIP, destination: 'Delhi', start: 'Pune' });
+});
+
+test('ready from the server needs a start and a destination, and a real reply can end ready', () => {
+  const s = receiveReply(sendMessage(ready0(), 'x'), reply('go', { travel_mode: 'road', crew_size: 2 }, true));
+  assert.equal(s.ready, false);
+  const t = receiveReply(sendMessage(ready0(), 'x'), reply('go', KNOWN, true));
+  assert.equal(t.ready, true);
+});
+
+test('mergeTrip keeps the previous draft only for an all-null trip', () => {
+  const prev: TripDraft = { ...EMPTY_TRIP, ...KNOWN };
+  assert.equal(mergeTrip(prev, EMPTY_TRIP), prev);
+  const next: TripDraft = { ...EMPTY_TRIP, crew_size: 5 };
+  assert.equal(mergeTrip(prev, next), next);
 });

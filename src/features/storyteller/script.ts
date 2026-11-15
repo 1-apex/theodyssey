@@ -11,6 +11,7 @@ export type ScriptField = (typeof SCRIPT_FIELDS)[number];
 export const EMPTY_TRIP: TripDraft = {
   start: null,
   destination: null,
+  travel_mode: null,
   crew_size: null,
   duration: null,
   travel_style: null,

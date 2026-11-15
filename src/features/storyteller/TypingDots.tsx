@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Animated, Easing, Platform, StyleSheet, View } from 'react-native';
 
 import { colors } from '../../components/PixelSprite';
+import { sz } from '../../theme/scale';
 import { useReducedMotion } from './useReducedMotion';
 
 const DOTS = 3;
@@ -40,7 +41,7 @@ export function TypingDots({ label }: { label: string }) {
             styles.dot,
             {
               opacity: d.interpolate({ inputRange: [0, 1], outputRange: [0.45, 1] }),
-              transform: [{ translateY: d.interpolate({ inputRange: [0, 1], outputRange: [0, -5] }) }],
+              transform: [{ translateY: d.interpolate({ inputRange: [0, 1], outputRange: [0, -sz(5)] }) }],
             },
           ]}
         />
@@ -50,6 +51,6 @@ export function TypingDots({ label }: { label: string }) {
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 24, paddingHorizontal: 4 },
-  dot: { width: 8, height: 8, backgroundColor: colors.ink },
+  row: { flexDirection: 'row', alignItems: 'center', gap: sz(6), height: sz(24), paddingHorizontal: sz(4) },
+  dot: { width: sz(8), height: sz(8), backgroundColor: colors.ink },
 });

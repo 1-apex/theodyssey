@@ -75,6 +75,31 @@ export const c = {shipLabel:'Your ship',harbor:'Dallas, TX',
 };
 
 // ---------------------------------------------------------------------------
+// The treasure map on the voyage screen: place names are always the real ones.
+// ---------------------------------------------------------------------------
+export const map = {
+  route: (start: string, destination: string) => `${start} → ${destination}`,
+  hiddenInFog: 'hidden in fog',
+  harbour: 'Harbour',
+  uncharted: 'Uncharted',
+  fogPatch: 'Uncharted waters, hidden in fog',
+  mapLabel: 'Treasure map of the voyage',
+  shipLabel: 'Your ship',
+  next: (place: string, distance: string | null) => (distance === null ? `Next: ${place}` : `Next: ${place} · ${distance}`),
+  nextHint: 'Shows details of the next stage',
+  stageOfTotal: (n: number, total: number) => `Stage ${n} of ${total}`,
+  ithaca: 'Ithaca, the final stage',
+  status: { cleared: 'Cleared', current: 'Current target', ahead: 'Still ahead' },
+  away: (distance: string) => `${distance} from your crew`,
+  reward: (points: number) => `◈ ${points} Drachma`,
+  close: 'Close',
+  sheetLabel: (place: string) => `Details of ${place}`,
+  stopLabel: (place: string, n: number, status: string) => `${place}, stage ${n}, ${status}`,
+  stopHint: 'Opens the stage details',
+  progressLabel: (cleared: number, total: number) => `${cleared} of ${total} stages cleared`,
+} as const;
+
+// ---------------------------------------------------------------------------
 // Strings added when the screens were connected to the backend.
 // ---------------------------------------------------------------------------
 export const app = {
@@ -130,7 +155,6 @@ export const app = {
     `“Hear me, Captain. Your ship departs the harbor of ${start}. Islands guard the way, and each holds a feast, a wonder, or a trial. Clear them all and the lights of Ithaca await.”`,
   stageOf: (n: number, total: number) => `STAGE ${n} / ${total}`,
   stageLabel: (n: number, isIthaca: boolean) => `STAGE ${n}${isIthaca ? ' · Ithaca' : ''}`,
-  currentStage: (n: number) => `CURRENT ISLAND · STAGE ${n}`,
   reward: (points: number) => `◈ ${points} Drachma`,
   crewCount: (n: number) => `Crew · ${n}`,
   waitingForCaptain: 'Waiting for the Captain to set sail...',
@@ -144,9 +168,9 @@ export const app = {
   gpsDenied: 'Location permission was denied. Staying in simulated travel.',
   gpsError: 'Could not start GPS. Staying in simulated travel.',
   gpsHint: 'A stage clears when your phone enters its radius.',
-  distance: (km: string) => `${km} km to go`,
-  cleared: (title: string, points: number) => `${title} cleared. +${points} Drachma.`,
-  alreadyCleared: (title: string) => `${title} was already cleared by your Crew.`,
+  distance: (miles: string) => `${miles} to go`,
+  cleared: (place: string, points: number) => `${place} cleared. +${points} Drachma.`,
+  alreadyCleared: (place: string) => `${place} was already cleared by your Crew.`,
   rejected: {
     not_found: 'That island has vanished from the charts.',
     not_member: 'You are not part of this Crew.',
@@ -198,6 +222,10 @@ export const storyteller = {
   send: 'Send',
   sendLabel: 'Send your reply',
   summon: '✦ Summon the Oracle',
+  scrollReady: 'Your tale is ready',
+  scrollFallback: 'Or sail a ready-made route',
+  voiceOn: 'Odysseus speaks aloud. Tap to mute him.',
+  voiceOff: 'Odysseus is muted. Tap to hear him.',
   nameOdysseus: 'Odysseus',
   nameYou: 'You',
   said: (who: string, text: string) => `${who} says: ${text}`,
@@ -214,4 +242,19 @@ export const profile = {
   saved: 'Saved.',
   saveError: 'Could not save your avatar. Try again.',
   avatarOf: (avatarName: string) => `Your avatar: ${avatarName}`,
+  summaryLabel: 'YOUR TALLY',
+  drachmaEarned: 'DRACHMA EARNED',
+  voyagesStat: 'VOYAGES',
+  completedStat: 'COMPLETED',
+  captainedStat: 'CAPTAINED',
+  voyagesLabel: 'YOUR VOYAGES',
+  voyagesLoading: 'Reading the logbook...',
+  voyagesEmpty: 'No voyages yet. Create an Odyssey or join a crew, and your journeys will be written here.',
+  voyagesError: 'Could not read your logbook. Check your connection.',
+  retry: 'Try again',
+  hiddenInFog: 'hidden in fog',
+  captainBadge: 'CAPTAIN',
+  status: { lobby: 'IN THE LOBBY', voyage: 'AT SEA', complete: 'COMPLETE' },
+  drachma: (n: number) => `◈ ${n} Drachma`,
+  openVoyage: (route: string, status: string) => `Open voyage ${route}, ${status}`,
 } as const;

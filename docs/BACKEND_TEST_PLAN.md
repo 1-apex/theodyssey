@@ -88,14 +88,14 @@ If it fails:
 | `[llm_failed] LLM returned 400` | Gemini rejected the request body | Send me the full message; the request shape needs adjusting |
 | `[llm_failed] LLM returned 401/403` | Bad Gemini key | Check `LLM_API_KEY` |
 | `fetch failed` / `self-signed certificate` | Node does not trust the network's TLS certificate | Add `--use-system-ca` |
-| `[llm_failed] LLM returned 404` | Model id not available to your key | Set `LLM_MODEL` in the env file to a model your key can use |
+| `[llm_failed] LLM returned 404` | Model id not available to your key | Set `LLM_CHAT_MODEL` / `LLM_PLANNER_MODEL` (or `LLM_MODEL`) in the env file to a model your key can use |
 | `[llm_failed] LLM returned 429` | Free-tier rate limit | Wait a minute |
 | `[llm_bad_output]` | The response layout differs from what the code reads | Send me the full message |
 | `Geocoding auth failed` | Bad Mapbox token | Check `GEOCODING_API_KEY` |
 | `[endpoint_not_found]` | Mapbox could not find the start or destination | Try a more specific name |
-| `[too_few_stages]` | Too many stages failed to geocode | Run again; if it repeats, try a stronger model with `LLM_MODEL` |
+| `[too_few_stages]` | Too many stages failed to geocode | Run again; if it repeats, try a stronger model with `LLM_PLANNER_MODEL` |
 
-The default model is `gemma-4-31b-it` (Gemma 4 31B). It is often overloaded (503), so each function's single retry goes to `gemini-3.1-flash-lite` instead. If routes are dull or often contain fake places, set `LLM_MODEL=gemini-3.8-flash` and compare.
+Two models, two jobs. Chat (many small turns) uses `gemini-3.1-flash-lite`; route planning (one big structured answer) uses `gemma-4-31b-it` (Gemma 4 31B). Gemma is often overloaded (503), so each function's single retry goes to the other model: chat falls back to Gemma, the planner to `gemini-3.1-flash-lite`. Override with `LLM_CHAT_MODEL` and `LLM_PLANNER_MODEL`; the older `LLM_MODEL` still overrides both. If routes are dull or often contain fake places, set `LLM_PLANNER_MODEL=gemini-3.8-flash` and compare. `try-oracle.ts` takes a third argument, `road` (default) or `flight`.
 
 ## Part 3: Set up the hosted project (about 5 minutes, once)
 
@@ -201,3 +201,15 @@ Do this on the day, on the venue network.
 - `points_mode` (`crew` or `arriver`) is stored on the Odyssey and applied by `clear_stage`. Send it to `generate-odyssey`; it defaults to `crew`.
 - Not in the schema yet: start coordinates for simulate mode. The Odyssey stores `start_name` only.
 - The server's default stage radius is 250 m; the mock uses 500 m.
+
+## Odysseus speaks (odysseus-voice, ElevenLabs)
+
+Set two secrets (and optionally a third) for the voice, then deploy the function. Without them the function answers 503 `voice_not_configured` and the app stays silent.
+
+```
+npx supabase secrets set ELEVENLABS_API_KEY=<key> ELEVENLABS_VOICE_ID=<voice id>
+# optional: ELEVENLABS_MODEL (default eleven_flash_v2_5)
+npx supabase functions deploy odysseus-voice
+```
+
+For `supabase functions serve` add the same names to `supabase/functions/.env`. Only signed-in, non-anonymous users may call it (anonymous: 403 `account_required`). Test locally against a mock with `ELEVENLABS_BASE_URL`.
