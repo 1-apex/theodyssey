@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "odyssey",
+    "name": "Odyssey",
     "slug": "odyssey",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -17,10 +17,11 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.faizaan046.odyssey"
     },
     "web": {
-      "output": "server",
+      "output": "single",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
@@ -32,11 +33,17 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
-      ]
+      ],
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "45b45f7c-520d-4dc1-bda8-974fd469c7ea"
+      }
     }
   }
 }

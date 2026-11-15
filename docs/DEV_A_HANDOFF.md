@@ -1,5 +1,7 @@
 # Dev A frontend handoff
 
+> Status: this describes the visual prototype as delivered in `mobile/`. Since then the screens were moved into the root app and connected to the backend. The components live in `src/components/`, the screens in `app/`, and the in-memory demo state (`src/voyage.tsx`) is gone. The design notes below still apply.
+
 ## Design source
 
 The user-supplied `oracle-of-the-open-road-main.zip` export (archive commit `765b963fc1e3e4e0169b4c74bcb4dbe540827c1e`) is the design reference. `assets/sprites/lovable-pixels.json` contains its original ship, island, Ithaca and avatar pixel matrices from `src/components/pixel.tsx`. Its OKLCH palette from `src/styles.css` is converted to sRGB for native SVG rendering. Fonts, screen width, spacing, typography and sample copy follow that source.
