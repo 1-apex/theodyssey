@@ -15,6 +15,7 @@ import type {
   SetSailResult,
   VisibilityMode,
 } from '../../lib/types';
+import { parseChatResponse } from '../storyteller/chatResponse';
 
 export class ApiError extends Error {
   code: string;
@@ -90,11 +91,51 @@ export async function chatWithOdysseus(messages: ChatMessage[]): Promise<Odysseu
     clearTimeout(timer);
   }
   const body: unknown = await res.json().catch(() => null);
-  if (res.ok && body !== null && typeof body === 'object' && 'reply' in body && 'trip' in body) {
-    return body as OdysseusChatResponse;
+  if (res.ok) {
+    // A body of the wrong shape counts as a failed call, so the chat offers "Try again" instead of breaking.
+    const checked = parseChatResponse(body);
+    if (checked !== null) return checked;
+    throw new ApiError('internal');
   }
   const code = body !== null && typeof body === 'object' && 'error' in body ? String(body.error) : 'internal';
   throw new ApiError(code);
+}
+
+/** What `speakAsOdysseus` found: the speech, or nothing to play. */
+export type SpeechResult = { kind: 'audio'; audio: string; mime: string } | { kind: 'silent' };
+
+const SILENT: SpeechResult = { kind: 'silent' };
+
+/**
+ * Odysseus's voice for one reply: base64 MP3 from the odysseus-voice Edge Function. Never throws:
+ * voice_not_configured (503), account_required (403), a timeout, a network error or a malformed
+ * body all give `{ kind: 'silent' }`, and the chat simply goes on without sound.
+ */
+export async function speakAsOdysseus(text: string): Promise<SpeechResult> {
+  const abort = new AbortController();
+  const timer = setTimeout(() => abort.abort(), 20_000);
+  try {
+    const token = await accessToken();
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/odysseus-voice`, {
+      method: 'POST',
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ text }),
+      signal: abort.signal,
+    });
+    if (!res.ok) return SILENT;
+    const body: unknown = await res.json().catch(() => null);
+    if (body === null || typeof body !== 'object' || !('audio' in body) || typeof body.audio !== 'string' || body.audio === '') return SILENT;
+    const mime = 'mime' in body && typeof body.mime === 'string' ? body.mime : 'audio/mpeg';
+    return { kind: 'audio', audio: body.audio, mime };
+  } catch {
+    return SILENT;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /** The pre-seeded route. No AI involved; the fallback when the Oracle fails. */

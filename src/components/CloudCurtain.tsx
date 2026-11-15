@@ -3,7 +3,7 @@
 // Lives above the navigator so it survives a change of screen.
 
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
-import { AccessibilityInfo, Animated, Easing, Platform, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { AccessibilityInfo, Animated, Easing, Keyboard, Platform, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { fonts } from '../theme/typography';
 import { BigCloud, CLOUD_COLS as COLS, CLOUD_ROW_COUNT as ROWS } from './BigCloud';
@@ -51,6 +51,7 @@ export function CloudCurtainProvider({ children }: { children: ReactNode }) {
   const curtain = useMemo<CloudCurtain>(
     () => ({
       async close(text = '') {
+        Keyboard.dismiss(); // no soft keyboard over the clouds
         setMessage(text);
         setShown(true);
         await run(1, CLOSE_MS);

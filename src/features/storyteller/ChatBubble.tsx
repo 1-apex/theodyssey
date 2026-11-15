@@ -1,14 +1,18 @@
 import type { ReactNode } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Platform, Pressable, StyleSheet, Text, View, type TextStyle } from 'react-native';
 
 import { PixelAvatar } from '../../components/PixelAvatar';
 import { colors } from '../../components/PixelSprite';
 import { storyteller as copy } from '../../theme/copy';
+import { sz } from '../../theme/scale';
 import { fonts } from '../../theme/typography';
 import { TypingDots } from './TypingDots';
 import { useTypewriter } from './useTypewriter';
 
-const AVATAR_TILE = 40;
+const AVATAR_TILE = sz(40);
+
+/** A long unbroken string (a URL, "aaaa...") must wrap inside the bubble, not push it wider. Native text already breaks anywhere. */
+const WRAP: TextStyle = Platform.OS === 'web' ? ({ overflowWrap: 'anywhere', wordBreak: 'break-word' } as TextStyle) : {};
 
 /** A small framed portrait beside a message group. */
 function Portrait({ children }: { children: ReactNode }) {
@@ -91,12 +95,12 @@ export function TypingBubble() {
 const noop = () => {};
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, width: '100%' },
+  row: { flexDirection: 'row', alignItems: 'flex-start', gap: sz(8), width: '100%' },
   rowMine: { justifyContent: 'flex-end' },
   tile: {
     width: AVATAR_TILE,
     height: AVATAR_TILE,
-    borderWidth: 2,
+    borderWidth: sz(2),
     borderColor: colors.ink,
     backgroundColor: colors.sand,
     alignItems: 'center',
@@ -104,20 +108,21 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   tile0: { width: AVATAR_TILE, height: AVATAR_TILE },
-  portraitImage: { width: AVATAR_TILE - 4, height: AVATAR_TILE - 4 },
+  portraitImage: { width: AVATAR_TILE - sz(4), height: AVATAR_TILE - sz(4) },
   bubble: {
     maxWidth: '78%',
+    minWidth: 0,
     flexShrink: 1,
-    borderWidth: 3,
+    borderWidth: sz(3),
     borderColor: colors.ink,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: sz(12),
+    paddingVertical: sz(8),
     boxShadow: '3px 3px 0 #010b18',
   },
   bubbleHis: { backgroundColor: colors.parchment },
   bubbleMine: { backgroundColor: colors.gold },
-  dotsBubble: { paddingVertical: 12, minHeight: 46, justifyContent: 'center' },
-  text: { fontFamily: fonts.body, fontSize: 17, lineHeight: 24, color: colors.ink },
+  dotsBubble: { paddingVertical: sz(12), minHeight: sz(46), justifyContent: 'center' },
+  text: { fontFamily: fonts.body, fontSize: sz(17), lineHeight: sz(24), color: colors.ink, ...WRAP },
   textMine: { color: colors.ink },
   hidden: { color: 'transparent' },
 });

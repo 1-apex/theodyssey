@@ -1,12 +1,12 @@
 import { router } from 'expo-router';
-import { useRef, useState, type ComponentRef } from 'react';
+import { useEffect, useRef, useState, type ComponentRef } from 'react';
 import {
+  Keyboard,
   Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
-  useWindowDimensions,
   View,
   type TextInputContentSizeChangeEvent,
   type TextInputKeyPressEvent,
@@ -19,19 +19,19 @@ import { Bar } from '@/components/ui';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { avatarId, createDemoOdyssey, createOdyssey, joinOdyssey, toApiError } from '@/features/odyssey/api';
 import { ChatBubble, ChatRow, TypingBubble } from '@/features/storyteller/ChatBubble';
-import { ActionButton, SystemNote } from '@/features/storyteller/ChatBits';
+import { ActionButton, ScrollCard, SpeakerToggle, SystemNote } from '@/features/storyteller/ChatBits';
 import { cleanInput, isBusy, MAX_TEXT, tripToRequest } from '@/features/storyteller/conversation';
 import { useChat } from '@/features/storyteller/useChat';
+import { useOdysseusVoice } from '@/features/storyteller/useOdysseusVoice';
+import { sz } from '@/theme/scale';
 import { app, storyteller as t } from '@/theme/copy';
 import { fonts } from '@/theme/typography';
 
-const INPUT_MIN = 46;
-const INPUT_MAX = 112;
+const INPUT_MIN = sz(46);
+const INPUT_MAX = sz(112);
 /** Vertical padding (8 + 8) and border (3 + 3) around the text. */
-const INPUT_CHROME = 16;
-const INPUT_BORDER = 6;
-/** Room for the Summon button, kept free on roomy screens so the chat does not jump when it appears. */
-const SLOT_HEIGHT = 44;
+const INPUT_CHROME = sz(16);
+const INPUT_BORDER = sz(6);
 
 /** On web, Enter sends and Shift+Enter starts a new line. */
 function isPlainEnter(e: TextInputKeyPressEvent): boolean {
@@ -45,8 +45,8 @@ const errorText = (e: unknown): string => app.errors[toApiError(e).code as keyof
 export default function Storyteller() {
   const { username, avatar } = useAuth();
   const curtain = useCloudCurtain();
-  const { height } = useWindowDimensions();
   const { state, send, tryAgain, typed } = useChat();
+  const voice = useOdysseusVoice();
   const [input, setInput] = useState('');
   const [inputHeight, setInputHeight] = useState(INPUT_MIN);
   const [working, setWorking] = useState(false);
@@ -56,7 +56,26 @@ export default function Storyteller() {
   const nickname = username ?? '';
   const request = tripToRequest(state.trip, nickname, avatarId(avatar));
   const canSend = cleanInput(input) !== null && !isBusy(state);
-  const reserve = height >= 600;
+
+  /** Closes the soft keyboard and takes focus off the text box, so it does not come back on the next screen. */
+  const closeKeyboard = () => {
+    box.current?.blur();
+    Keyboard.dismiss();
+  };
+
+  // The chat just became ready (the traveler's last message did it): the keyboard has done its job.
+  useEffect(() => {
+    if (state.ready) closeKeyboard();
+  }, [state.ready]);
+
+  // Odysseus says each new line aloud (not the greeting, which is fixed, and never an error line).
+  const spoken = state.typingId !== null && state.typingId !== 0 ? state.lines.find((l) => l.id === state.typingId) : undefined;
+  const spokenId = spoken?.id;
+  const spokenText = spoken?.text;
+  const { speak } = voice;
+  useEffect(() => {
+    if (spokenId !== undefined && spokenText !== undefined) speak(spokenText);
+  }, [spokenId, spokenText, speak]);
 
   const submit = () => {
     if (!canSend) return;
@@ -89,6 +108,7 @@ export default function Storyteller() {
   /** The cloud curtain covers the wait; on success we are on the preview screen when it opens. */
   const runWithCurtain = async (work: () => Promise<string>) => {
     if (working) return;
+    closeKeyboard();
     setWorking(true);
     setProblem(null);
     await curtain.close(app.consulting);
@@ -124,23 +144,28 @@ export default function Storyteller() {
 
   const header = (
     <View style={styles.header}>
-      <Bar title={t.title} onBack={() => router.back()} />
+      <View style={styles.bar}>
+        <Bar
+          title={t.title}
+          onBack={() => {
+            closeKeyboard();
+            router.back();
+          }}
+        />
+      </View>
+      <SpeakerToggle on={voice.enabled} label={voice.enabled ? t.voiceOn : t.voiceOff} onPress={voice.toggle} />
     </View>
   );
 
   const footer = (
     <View style={styles.footer}>
-      <View style={[styles.slot, reserve && { minHeight: SLOT_HEIGHT }]}>
-        {problem !== null && <ActionButton title={app.demoRoute} onPress={sailDemo} disabled={working} secondary />}
-        {state.ready && <ActionButton title={t.summon} onPress={summon} disabled={working || request === null} />}
-      </View>
       <View style={styles.inputRow}>
         <TextInput
           ref={box}
           accessibilityLabel={t.answerLabel}
           value={input}
           onChangeText={(text) => {
-            setInput(text);
+            setInput(text.slice(0, MAX_TEXT)); // pasted text counts too
             fitWeb();
           }}
           onContentSizeChange={Platform.OS === 'web' ? undefined : onSize}
@@ -181,55 +206,66 @@ export default function Storyteller() {
         )}
         {state.failed && (
           <SystemNote text={t.chatError}>
-            <ActionButton title={t.retry} onPress={tryAgain} />
+            <ActionButton
+              title={t.retry}
+              onPress={() => {
+                closeKeyboard();
+                tryAgain();
+              }}
+            />
           </SystemNote>
         )}
         {problem !== null && <SystemNote text={problem} />}
+        {(state.ready || problem !== null) && (
+          <ScrollCard caption={state.ready ? t.scrollReady : t.scrollFallback}>
+            {state.ready && <ActionButton title={t.summon} onPress={summon} disabled={working || request === null} />}
+            {problem !== null && <ActionButton title={app.demoRoute} onPress={sailDemo} disabled={working} secondary />}
+          </ScrollCard>
+        )}
       </View>
     </KeyboardFrame>
   );
 }
 
 const styles = StyleSheet.create({
-  header: { paddingHorizontal: 16, paddingTop: 12 },
-  messages: { gap: 12, paddingHorizontal: 16, paddingTop: 4, paddingBottom: 16 },
+  header: { flexDirection: 'row', alignItems: 'flex-start', gap: sz(10), paddingHorizontal: sz(16), paddingTop: sz(12) },
+  bar: { flex: 1 },
+  messages: { gap: sz(12), paddingHorizontal: sz(16), paddingTop: sz(4), paddingBottom: sz(16) },
   footer: {
-    gap: 10,
-    paddingHorizontal: 12,
-    paddingTop: 10,
-    paddingBottom: 12,
+    paddingHorizontal: sz(12),
+    paddingTop: sz(10),
+    paddingBottom: sz(10),
     backgroundColor: colors['ocean-deep'],
-    borderTopWidth: 3,
+    borderTopWidth: sz(3),
     borderTopColor: colors['gold-dark'],
   },
-  slot: { flexDirection: 'row', gap: 10, alignItems: 'stretch' },
-  inputRow: { flexDirection: 'row', gap: 9, alignItems: 'flex-end' },
+  inputRow: { flexDirection: 'row', gap: sz(9), alignItems: 'flex-end' },
   input: {
     flex: 1,
     minHeight: INPUT_MIN,
     maxHeight: INPUT_MAX,
-    borderWidth: 3,
+    borderWidth: sz(3),
     borderColor: colors.ink,
     backgroundColor: colors.parchment,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: sz(12),
+    paddingVertical: sz(8),
     color: colors.ink,
     fontFamily: fonts.body,
-    fontSize: 17,
-    lineHeight: 22,
+    fontSize: sz(17),
+    lineHeight: sz(22),
     textAlignVertical: 'top',
   },
   send: {
     height: INPUT_MIN,
-    minWidth: 72,
-    borderWidth: 3,
+    minWidth: sz(72),
+    borderWidth: sz(3),
     borderColor: colors.ink,
     backgroundColor: colors.gold,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 10,
+    paddingHorizontal: sz(10),
     boxShadow: 'inset 3px 3px 0 #ffe39a, inset -3px -3px 0 #ab6c0c',
   },
   sendDisabled: { opacity: 0.5 },
-  sendText: { fontFamily: fonts.ui, color: colors.ink, fontSize: 17, lineHeight: 22 },
+  sendText: { fontFamily: fonts.ui, color: colors.ink, fontSize: sz(17), lineHeight: sz(22) },
 });

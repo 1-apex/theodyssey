@@ -92,7 +92,23 @@ export function retry(s: ChatState): ChatState {
 export function receiveReply(s: ChatState, res: OdysseusChatResponse): ChatState {
   if (!s.waiting || s.scripted) return s;
   const next = append(s, 'odysseus', res.reply);
-  return { ...next, trip: res.trip, ready: res.ready, waiting: false, failures: 0, typingId: s.nextId };
+  const degraded = isEmptyTrip(res.trip);
+  const trip = mergeTrip(s.trip, res.trip);
+  // A degraded reply ("say that once more") says nothing new, so it keeps what we know, ready included.
+  const ready = degraded ? s.ready : res.ready && trip.start !== null && trip.destination !== null;
+  return { ...next, trip, ready, waiting: false, failures: 0, typingId: s.nextId };
+}
+
+const isEmptyTrip = (trip: TripDraft): boolean => Object.values(trip).every((v) => v === null);
+
+/**
+ * The server is stateless and, when the model gave two unreadable answers, sends a safe reply
+ * with an ALL-NULL trip. That must not wipe the draft we already hold: an all-null trip keeps the
+ * previous one. Any other trip is the server's view of the whole conversation and is taken as is
+ * (the server cannot say "forget this", so a field it leaves null in a real reply is unknown).
+ */
+export function mergeTrip(previous: TripDraft, incoming: TripDraft): TripDraft {
+  return isEmptyTrip(incoming) ? previous : incoming;
 }
 
 /** The server failed. The first time a retry is offered; the second time the script takes over. */
@@ -109,7 +125,7 @@ export function receiveFailure(s: ChatState): ChatState {
   const field = nextField(s.trip, s.asked);
   const ready = field === null && s.trip.destination !== null && s.trip.start !== null;
   const text = field !== null ? scriptQuestion(field) : copy.scriptedDone;
-  return { ...append(base, 'odysseus', copy.scriptedNotice + text), asking: field, ready, typingId: s.nextId };
+  return { ...append(base, 'odysseus', copy.scriptedNotice + text), trip: finishTrip(s.trip, ready), asking: field, ready, typingId: s.nextId };
 }
 
 /** Scripted mode: Odysseus answers locally after the traveler's message. */
@@ -134,7 +150,15 @@ function advanceScript(s: ChatState, prefix: string): ChatState {
   const ready = field === null && trip.destination !== null && trip.start !== null;
   const text = field !== null ? scriptQuestion(field) : s.asking === null ? copy.scriptedDone : copy.closing;
   const next = append(s, 'odysseus', prefix + text);
-  return { ...next, trip, asked, asking: field, ready, waiting: false, typingId: s.nextId };
+  return { ...next, trip: finishTrip(trip, ready), asked, asking: field, ready, waiting: false, typingId: s.nextId };
+}
+
+/**
+ * The script never asks how the crew travels, but a finished trip needs a travel mode (the server
+ * wants one too), so when the script finishes it fills in 'road', the default of the Oracle.
+ */
+function finishTrip(trip: TripDraft, ready: boolean): TripDraft {
+  return ready && trip.travel_mode === null ? { ...trip, travel_mode: 'road' } : trip;
 }
 
 /** What Odysseus asks for each field. The first question is the greeting; the rest are the prompts. */
@@ -175,6 +199,7 @@ export function tripToRequest(trip: TripDraft, nickname: string, avatar: string)
     crew_size: trip.crew_size ?? 2,
     duration: trip.duration ?? '',
     travel_style: trip.travel_style ?? '',
+    travel_mode: trip.travel_mode ?? 'road',
     visibility_mode: trip.visibility_mode ?? 'fog',
     points_mode: 'crew',
     nickname,
