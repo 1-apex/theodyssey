@@ -7,12 +7,14 @@ import { parseVoicePref, speakableText, VOICE_PREF_KEY, voicePrefValue } from '.
 
 /**
  * Odysseus's voice for the chat: a speaker switch that is remembered across restarts, and
- * `speak(text)` for each new reply. The audio is fetched while the text is already being typed;
+ * `speak(text)` for each new line, the opening greeting included. The audio is fetched while the text is already being typed;
  * if it arrives in time it plays once. A newer reply replaces it, muting or leaving the screen
  * stops it, and every failure is silent. While muted no request is made.
  */
 export function useOdysseusVoice() {
   const [enabled, setEnabled] = useState(true);
+  // False until the saved switch has been read, so a muted player never triggers a request on open.
+  const [loaded, setLoaded] = useState(false);
   // What the async code reads: the switch now, and which speech is the newest.
   const on = useRef(true);
   const latest = useRef(0);
@@ -28,8 +30,9 @@ export function useOdysseusVoice() {
       (raw) => {
         on.current = parseVoicePref(raw);
         setEnabled(on.current);
+        setLoaded(true);
       },
-      () => {},
+      () => setLoaded(true),
     );
     return silence;
   }, [silence]);
@@ -51,5 +54,5 @@ export function useOdysseusVoice() {
     AsyncStorage.setItem(VOICE_PREF_KEY, voicePrefValue(on.current)).catch(() => {});
   }, [silence]);
 
-  return { enabled, toggle, speak };
+  return { enabled, loaded, toggle, speak };
 }

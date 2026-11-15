@@ -68,14 +68,15 @@ export default function Storyteller() {
     if (state.ready) closeKeyboard();
   }, [state.ready]);
 
-  // Odysseus says each new line aloud (not the greeting, which is fixed, and never an error line).
-  const spoken = state.typingId !== null && state.typingId !== 0 ? state.lines.find((l) => l.id === state.typingId) : undefined;
+  // Odysseus says each new line aloud, starting with his greeting (never an error line).
+  const spoken = state.typingId !== null ? state.lines.find((l) => l.id === state.typingId) : undefined;
   const spokenId = spoken?.id;
   const spokenText = spoken?.text;
-  const { speak } = voice;
+  const { speak, loaded: voiceLoaded } = voice;
   useEffect(() => {
-    if (spokenId !== undefined && spokenText !== undefined) speak(spokenText);
-  }, [spokenId, spokenText, speak]);
+    // Wait for the saved speaker switch, so the greeting is not requested for a muted player.
+    if (voiceLoaded && spokenId !== undefined && spokenText !== undefined) speak(spokenText);
+  }, [voiceLoaded, spokenId, spokenText, speak]);
 
   const submit = () => {
     if (!canSend) return;
