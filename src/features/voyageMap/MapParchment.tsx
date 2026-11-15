@@ -6,7 +6,8 @@ import { StyleSheet, Text, View } from 'react-native';
 import Svg, { G, Path, Rect } from 'react-native-svg';
 
 import { fonts } from '@/theme/typography';
-import { distance, distanceToSegment, seeded, type MapLayout, type Point } from './layout';
+import { sz } from '@/theme/scale';
+import { designLayout, distance, distanceToSegment, seeded, type MapLayout, type Point } from './layout';
 import { COMPASS_ROWS, INK, markPalette, ROCK_ROWS, SERPENT_ROWS, spriteSize } from './pixelArt';
 
 const ROLL_H = 30;
@@ -121,8 +122,11 @@ function Sprite({ rows, x, y, size, opacity }: { rows: readonly string[]; x: num
   return <G opacity={opacity}>{cells}</G>;
 }
 
-function MapParchmentView({ layout }: { layout: MapLayout }) {
+function MapParchmentView({ layout: realLayout }: { layout: MapLayout }) {
+  // The chart is drawn in phone-size pixels and scaled up as a whole by the SVG viewBox.
+  const layout = useMemo(() => designLayout(realLayout), [realLayout]);
   const { width, height } = layout;
+  const { scale } = realLayout;
   const art = useMemo(() => {
     const rand = seeded(width * 7 + height);
     const bands = Math.floor((height - PAPER_TOP * 2) / STEP);
@@ -180,7 +184,7 @@ function MapParchmentView({ layout }: { layout: MapLayout }) {
 
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      <Svg width={width} height={height}>
+      <Svg width={realLayout.width} height={realLayout.height} viewBox={`0 0 ${width} ${height}`}>
         {/* shadow of the sheet on the table */}
         <Path d={art.paper} fill="#021630" opacity={0.5} transform="translate(4 5)" />
         <Path d={art.paper} fill="#e8d4a2" />
@@ -221,7 +225,7 @@ function MapParchmentView({ layout }: { layout: MapLayout }) {
       <Text
         style={[
           styles.north,
-          { left: art.compass.x + art.compass.size / 2 - 5, top: art.compass.y - 15 },
+          { left: (art.compass.x + art.compass.size / 2 - 5) * scale, top: (art.compass.y - 15) * scale },
         ]}
       >
         N
@@ -233,5 +237,5 @@ function MapParchmentView({ layout }: { layout: MapLayout }) {
 export const MapParchment = memo(MapParchmentView);
 
 const styles = StyleSheet.create({
-  north: { position: 'absolute', fontFamily: fonts.numeral, fontSize: 13, lineHeight: 14, color: INK, width: 12, textAlign: 'center' },
+  north: { position: 'absolute', fontFamily: fonts.numeral, fontSize: sz(13), lineHeight: sz(14), color: INK, width: sz(12), textAlign: 'center' },
 });

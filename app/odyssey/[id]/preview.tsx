@@ -12,6 +12,7 @@ import { useOdyssey } from '@/features/odyssey/useOdyssey';
 import { useStageCount } from '@/features/odyssey/useStageCount';
 import { useVisibleStages } from '@/features/odyssey/useVisibleStages';
 import { app, c } from '@/theme/copy';
+import { sz } from '@/theme/scale';
 
 export default function Preview() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -72,4 +73,4 @@ export default function Preview() {
   );
 }
 
-const st = StyleSheet.create({ flavour: { fontStyle: 'italic', fontSize: 12, lineHeight: 18, color: '#91c7dd', marginTop: 2 } });
+const st = StyleSheet.create({ flavour: { fontStyle: 'italic', fontSize: sz(12), lineHeight: sz(18), color: '#91c7dd', marginTop: sz(2) } });

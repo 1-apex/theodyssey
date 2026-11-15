@@ -12,6 +12,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { StartScreen } from '@/features/auth/StartScreen';
 import { isSupabaseConfigured } from '@/lib/supabase';
 import { app, c, copy } from '@/theme/copy';
+import { sz } from '@/theme/scale';
 
 export default function Index() {
   const { status } = useAuth();
@@ -24,7 +25,7 @@ function Home() {
   return (
     <Shell home>
       <Stars />
-      <View style={{ alignItems: 'flex-end', marginTop: 4, marginBottom: 12 }}>
+      <View style={{ alignItems: 'flex-end', marginTop: sz(4), marginBottom: sz(12) }}>
         <HelmButton onPress={() => router.push('/profile')} />
       </View>
       <View style={s.homeTitle}>
@@ -39,7 +40,7 @@ function Home() {
         <Button title={c.begin} onPress={() => router.push('/storyteller')} />
         <Button title={c.join} onPress={() => router.push('/join')} secondary />
         {username !== null && (
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: sz(8), marginTop: sz(8) }}>
             <PixelAvatar index={avatar} size={2} />
             <T style={[s.hint, { marginTop: 0 }]}>{app.auth.signedInAs(username)}</T>
           </View>

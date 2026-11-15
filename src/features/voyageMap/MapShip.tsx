@@ -7,14 +7,15 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, StyleSheet } from 'react-native';
 
 import { map } from '@/theme/copy';
+import { sz, spx } from '@/theme/scale';
 import { distance, sailDurationMs, type Point } from './layout';
 import { AsciiSprite, SHIP_ROWS, spritePalette, spriteSize } from './pixelArt';
 
 /** 5.5 px per sprite pixel: about 1.8x the ship the old map drew. */
-export const SHIP_SIZE = 5.5;
+export const SHIP_SIZE = spx(5.5);
 const BOX = spriteSize(SHIP_ROWS, SHIP_SIZE, true);
 /** The ship sits with its keel this far below the stop point. */
-const KEEL_DROP = -2;
+const KEEL_DROP = -sz(2);
 /** While a simulated trip is under way the ship eases this far along the leg. */
 const CREEP = 0.3;
 const CREEP_MS = 2400;
@@ -134,8 +135,8 @@ export function MapShip({ points, at, departing, reducedMotion, onArrive }: MapS
     }
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(bob, { toValue: -3, duration: 1100, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-        Animated.timing(bob, { toValue: 2, duration: 1100, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(bob, { toValue: -sz(3), duration: 1100, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(bob, { toValue: sz(2), duration: 1100, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
       ]),
     );
     loop.start();

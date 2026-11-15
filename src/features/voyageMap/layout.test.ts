@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { distance, mapLayout, sailDurationMs, seeded, TOP_PAD } from './layout';
+import { designLayout, distance, mapLayout, sailDurationMs, seeded, TOP_PAD } from './layout';
 
 for (const width of [276, 326, 416]) {
   for (let total = 3; total <= 8; total++) {
@@ -45,4 +45,17 @@ test('seeded random is repeatable', () => {
   const a = seeded(7);
   const b = seeded(7);
   assert.deepEqual([a(), a(), a()], [b(), b(), b()]);
+});
+
+test('a scaled layout is the phone layout, larger, with the same shape', () => {
+  const phone = mapLayout(326, 5);
+  const tablet = mapLayout(489, 5, 1.5);
+  assert.equal(tablet.scale, 1.5);
+  assert.equal(tablet.stops.length, 5);
+  assert.ok(Math.abs(tablet.height - phone.height * 1.5) <= 1);
+  assert.equal(tablet.stops[4].y, Math.round(TOP_PAD * 1.5));
+  assert.equal(tablet.compassSide, phone.compassSide);
+  const back = designLayout(tablet);
+  assert.ok(Math.abs(back.width - 326) < 0.01 && Math.abs(back.stops[2].x - phone.stops[2].x) <= 1);
+  assert.equal(designLayout(phone), phone);
 });

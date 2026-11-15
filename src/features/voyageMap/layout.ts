@@ -18,6 +18,8 @@ export interface MapLayout {
   labelWidth: number;
   /** The corner the compass rose goes in: the side away from the final stop. */
   compassSide: 'left' | 'right';
+  /** Size factor the map is drawn at (1 on phones). Everything above is in real pixels. */
+  scale: number;
 }
 
 /** Space above the final stop (scroll roll, border, room for its marker) and below the harbour. */
@@ -27,20 +29,49 @@ export const BOTTOM_PAD = 128;
 // Alternate sides, with a little variety so it reads as a drawn route and not a ruler line.
 const ZIGZAG = [0.7, 0.3, 0.66, 0.34, 0.71, 0.29, 0.65, 0.35];
 
-/** Positions for any number of stages (designed for 3 to 8). */
-export function mapLayout(width: number, total: number): MapLayout {
+/**
+ * Positions for any number of stages (designed for 3 to 8). `width` is in real pixels. The layout is
+ * worked out at phone size (`width / scale`) and then scaled up, so a tablet gets the same map, larger.
+ */
+export function mapLayout(width: number, total: number, scale = 1): MapLayout {
   const n = Math.max(1, Math.floor(total));
-  const gap = Math.min(170, Math.max(112, width * 0.44));
+  const w = width / scale;
+  const gap = Math.min(170, Math.max(112, w * 0.44));
   const height = Math.round(TOP_PAD + BOTTOM_PAD + n * gap);
-  const harbour = { x: width / 2, y: height - BOTTOM_PAD };
+  const harbour = { x: w / 2, y: height - BOTTOM_PAD };
   // Keeps x within 30%..70% of the width: with the label width below, names stay clear of the torn edges.
   const stops = Array.from({ length: n }, (_, i) => ({
-    x: Math.round(width * ZIGZAG[i % ZIGZAG.length]),
+    x: Math.round(w * ZIGZAG[i % ZIGZAG.length]),
     y: Math.round(harbour.y - (i + 1) * gap),
   }));
-  const labelWidth = Math.round(Math.min(116, width * 0.34));
+  const labelWidth = Math.round(Math.min(116, w * 0.34));
   const last = stops[n - 1];
-  return { width, height, harbour, stops, labelWidth, compassSide: last.x < width / 2 ? 'right' : 'left' };
+  const up = (p: Point): Point => ({ x: scale === 1 ? p.x : Math.round(p.x * scale), y: scale === 1 ? p.y : Math.round(p.y * scale) });
+  return {
+    width,
+    height: Math.round(height * scale),
+    harbour: scale === 1 ? harbour : up(harbour),
+    stops: stops.map(up),
+    labelWidth: Math.round(labelWidth * scale),
+    compassSide: last.x < w / 2 ? 'right' : 'left',
+    scale,
+  };
+}
+
+/** The same layout back at phone size, for art that is drawn in design pixels and scaled as a whole. */
+export function designLayout(layout: MapLayout): MapLayout {
+  const { scale } = layout;
+  if (scale === 1) return layout;
+  const down = (p: Point): Point => ({ x: p.x / scale, y: p.y / scale });
+  return {
+    ...layout,
+    width: layout.width / scale,
+    height: layout.height / scale,
+    harbour: down(layout.harbour),
+    stops: layout.stops.map(down),
+    labelWidth: layout.labelWidth / scale,
+    scale: 1,
+  };
 }
 
 export function distance(a: Point, b: Point): number {

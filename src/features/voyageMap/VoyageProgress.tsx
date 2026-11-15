@@ -5,11 +5,12 @@ import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 
 import { map } from '@/theme/copy';
+import { sz, spx } from '@/theme/scale';
 import { AsciiSprite, DIAMOND_PALETTE, DIAMOND_ROWS, INK, spriteSize } from './pixelArt';
 
-const CAP = 12;
-const TRACK_H = 18;
-const DIAMOND = 3; // px per sprite pixel: 15 * 3 = 45
+const CAP = sz(12);
+const TRACK_H = sz(18);
+const DIAMOND = spx(3); // px per sprite pixel: 15 * 3 = 45 on phones
 const D = spriteSize(DIAMOND_ROWS, DIAMOND, false).width;
 
 export function VoyageProgress({ cleared, total, reducedMotion }: { cleared: number; total: number; reducedMotion: boolean }) {
@@ -52,7 +53,7 @@ export function VoyageProgress({ cleared, total, reducedMotion }: { cleared: num
             <View style={styles.fillShine} />
           </Animated.View>
           {notches.map((n, i) => (
-            <View key={i} style={[styles.notch, { left: n - 1 }, n <= target + 1 ? styles.notchDone : styles.notchTodo]} />
+            <View key={i} style={[styles.notch, { left: n - sz(1) }, n <= target + 1 ? styles.notchDone : styles.notchTodo]} />
           ))}
         </View>
       </View>
@@ -66,27 +67,27 @@ export function VoyageProgress({ cleared, total, reducedMotion }: { cleared: num
 }
 
 const styles = StyleSheet.create({
-  wrap: { height: D + 6, justifyContent: 'center', marginHorizontal: 2, marginBottom: 10 },
-  track: { height: TRACK_H + 8, justifyContent: 'center' },
+  wrap: { height: D + sz(6), justifyContent: 'center', marginHorizontal: sz(2), marginBottom: sz(10) },
+  track: { height: TRACK_H + sz(8), justifyContent: 'center' },
   well: {
     position: 'absolute',
-    top: 4,
+    top: sz(4),
     height: TRACK_H,
     overflow: 'hidden',
     backgroundColor: '#010d1d',
-    borderTopWidth: 3,
+    borderTopWidth: sz(3),
     borderLeftWidth: 0,
     borderColor: '#000813',
-    borderBottomWidth: 2,
+    borderBottomWidth: sz(2),
     borderBottomColor: '#1b3f66',
   },
   fill: { position: 'absolute', left: 0, top: 0, bottom: 0, backgroundColor: '#f0bb3b' },
-  fillShine: { height: 4, backgroundColor: '#ffe39a' },
-  cap: { position: 'absolute', top: 0, width: CAP, height: TRACK_H + 8, backgroundColor: '#f0bb3b', borderWidth: 2, borderColor: INK, boxShadow: 'inset 2px 2px 0 #ffe39a, inset -2px -2px 0 #b17000' },
+  fillShine: { height: sz(4), backgroundColor: '#ffe39a' },
+  cap: { position: 'absolute', top: 0, width: CAP, height: TRACK_H + sz(8), backgroundColor: '#f0bb3b', borderWidth: sz(2), borderColor: INK, boxShadow: `inset ${sz(2)}px ${sz(2)}px 0 #ffe39a, inset ${sz(-2)}px ${sz(-2)}px 0 #b17000` },
   capLeft: { left: 0 },
   capRight: { right: 0 },
-  notch: { position: 'absolute', top: 0, bottom: 0, width: 2 },
+  notch: { position: 'absolute', top: 0, bottom: 0, width: sz(2) },
   notchDone: { backgroundColor: '#8a5a08' },
   notchTodo: { backgroundColor: '#b17000', opacity: 0.8 },
-  diamond: { position: 'absolute', top: 3 },
+  diamond: { position: 'absolute', top: sz(3) },
 });

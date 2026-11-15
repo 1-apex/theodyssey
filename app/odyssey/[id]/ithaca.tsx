@@ -14,6 +14,7 @@ import { useStageCount } from '@/features/odyssey/useStageCount';
 import { useVisibleStages } from '@/features/odyssey/useVisibleStages';
 import { usePoints } from '@/features/points/usePoints';
 import { app, c, map } from '@/theme/copy';
+import { sz } from '@/theme/scale';
 
 export default function Ithaca() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -32,16 +33,16 @@ export default function Ithaca() {
     <Shell>
       <ArrivalArt />
       <Border />
-      <T style={[s.logo, { fontSize: 24, textAlign: 'center' }]}>ITHACA!</T>
+      <T style={[s.logo, { fontSize: sz(24), textAlign: 'center' }]}>ITHACA!</T>
       <Border />
-      <T style={[s.text, { textAlign: 'center', marginTop: 20 }]}>{app.complete(odyssey.title)}</T>
-      <T style={[s.text, { textAlign: 'center', fontSize: 14, color: '#c1e6ed', marginBottom: 20 }]}>
+      <T style={[s.text, { textAlign: 'center', marginTop: sz(20) }]}>{app.complete(odyssey.title)}</T>
+      <T style={[s.text, { textAlign: 'center', fontSize: sz(14), color: '#c1e6ed', marginBottom: sz(20) }]}>
         {map.route(odyssey.start_name, odyssey.destination_name)}
       </T>
       <View style={s.parchment}>
         <T style={[s.darkTitle, { textAlign: 'center' }]}>{c.finishTitle}</T>
         <T style={s.dark}>{c.finishSub}</T>
-        <T accessibilityLabel="finish-summary" style={[s.darkTitle, { textAlign: 'center', marginVertical: 28 }]}>
+        <T accessibilityLabel="finish-summary" style={[s.darkTitle, { textAlign: 'center', marginVertical: sz(28) }]}>
           {app.finishSummary(cleared, total, points.myTotal)}
         </T>
         <T style={s.quote}>{c.endQuote}</T>

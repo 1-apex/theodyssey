@@ -15,3 +15,6 @@ export const sz = (n: number): number => Math.round(n * SCALE);
 
 /** Widest the content column gets (448 on phones). */
 export const CONTENT_MAX_WIDTH = Math.round(448 * SCALE);
+
+/** Scale a sprite's pixel-cell size, kept a whole number (at least 1) so pixel art stays crisp. Phones keep `n` as it is. */
+export const spx = (n: number): number => (SCALE === 1 ? n : Math.max(1, Math.round(n * SCALE)));

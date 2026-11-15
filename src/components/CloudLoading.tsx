@@ -9,9 +9,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from './PixelSprite';
 import { SeaLines } from './PixelScene';
 import { BigCloud, CLOUD_COLS, CLOUD_ROW_COUNT } from './BigCloud';
+import { CONTENT_MAX_WIDTH, sz } from '../theme/scale';
 import { fonts } from '../theme/typography';
 
-/** Height as a fraction of the screen, size as a fraction of 448, seconds to cross, starting phase 0..1. */
+/** Height as a fraction of the screen, size as a fraction of the content column width, seconds to cross, starting phase 0..1. */
 const CLOUDS = [
   { y: 0.06, size: 0.5, secs: 60, phase: 0.1 },
   { y: 0.2, size: 0.34, secs: 44, phase: 0.62 },
@@ -22,7 +23,7 @@ const CLOUDS = [
 ];
 
 function DriftingCloud({ y, size, secs, phase, width, height, still }: (typeof CLOUDS)[number] & { width: number; height: number; still: boolean }) {
-  const w = Math.min(width, 448) * size;
+  const w = Math.min(width, CONTENT_MAX_WIDTH) * size;
   const h = (w * CLOUD_ROW_COUNT) / CLOUD_COLS;
   const [t] = useState(() => new Animated.Value(phase));
   useEffect(() => {
@@ -82,7 +83,7 @@ export function CloudLoading({ text }: { text: string }) {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors['ocean-deep'], overflow: 'hidden' },
-  center: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  box: { backgroundColor: '#f2f4dc', borderWidth: 3, borderColor: '#3b5276', paddingVertical: 14, paddingHorizontal: 16, maxWidth: 360 },
-  text: { fontFamily: fonts.heading, fontSize: 10, lineHeight: 18, color: '#3b5276', textAlign: 'center' },
+  center: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, alignItems: 'center', justifyContent: 'center', padding: sz(24) },
+  box: { backgroundColor: '#f2f4dc', borderWidth: sz(3), borderColor: '#3b5276', paddingVertical: sz(14), paddingHorizontal: sz(16), maxWidth: sz(360) },
+  text: { fontFamily: fonts.heading, fontSize: sz(10), lineHeight: sz(18), color: '#3b5276', textAlign: 'center' },
 });

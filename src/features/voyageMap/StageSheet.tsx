@@ -9,6 +9,7 @@ import { formatMiles } from '@/features/location/distance';
 import { openInMaps } from '@/features/location/openInMaps';
 import { regionOf, shortPlaceName } from '@/features/odyssey/placeNames';
 import { map } from '@/theme/copy';
+import { sz } from '@/theme/scale';
 import { fonts } from '@/theme/typography';
 import type { Stage } from '@/lib/types';
 import type { StopState } from './MapStop';
@@ -95,29 +96,29 @@ const styles = StyleSheet.create({
   backdrop: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(1, 13, 29, 0.66)' },
   card: {
     width: '100%',
-    maxWidth: 480,
+    maxWidth: sz(480),
     backgroundColor: '#ecd9aa',
-    borderTopWidth: 4,
-    borderLeftWidth: 3,
-    borderRightWidth: 3,
+    borderTopWidth: sz(4),
+    borderLeftWidth: sz(3),
+    borderRightWidth: sz(3),
     borderColor: INK,
-    boxShadow: 'inset 0 4px 0 #c28b2a, inset 0 8px 0 #f5ebce',
-    paddingTop: 10,
+    boxShadow: `inset 0 ${sz(4)}px 0 #c28b2a, inset 0 ${sz(8)}px 0 #f5ebce`,
+    paddingTop: sz(10),
   },
-  grip: { alignSelf: 'center', width: 54, height: 5, backgroundColor: '#8a6a3a', opacity: 0.6, marginBottom: 4 },
-  body: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 28, gap: 8 },
-  head: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  place: { fontFamily: fonts.ui, fontSize: 28, lineHeight: 34, color: INK },
-  region: { fontFamily: fonts.body, fontSize: 16, lineHeight: 22, color: '#584332' },
-  close: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: INK, backgroundColor: '#d9c099' },
-  closeText: { fontFamily: fonts.body, fontSize: 18, color: INK },
-  meta: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 6 },
-  numeral: { fontFamily: fonts.numeral, fontSize: 18, lineHeight: 24, color: INK },
-  status: { fontFamily: fonts.numeral, fontSize: 14, lineHeight: 20, color: '#584332', borderWidth: 2, borderColor: '#8a6a3a', paddingHorizontal: 8, paddingVertical: 1 },
+  grip: { alignSelf: 'center', width: sz(54), height: sz(5), backgroundColor: '#8a6a3a', opacity: 0.6, marginBottom: sz(4) },
+  body: { paddingHorizontal: sz(20), paddingTop: sz(10), paddingBottom: sz(28), gap: sz(8) },
+  head: { flexDirection: 'row', alignItems: 'flex-start', gap: sz(12) },
+  place: { fontFamily: fonts.ui, fontSize: sz(28), lineHeight: sz(34), color: INK },
+  region: { fontFamily: fonts.body, fontSize: sz(16), lineHeight: sz(22), color: '#584332' },
+  close: { width: sz(44), height: sz(44), alignItems: 'center', justifyContent: 'center', borderWidth: sz(2), borderColor: INK, backgroundColor: '#d9c099' },
+  closeText: { fontFamily: fonts.body, fontSize: sz(18), color: INK },
+  meta: { flexDirection: 'row', alignItems: 'center', gap: sz(12), marginTop: sz(6) },
+  numeral: { fontFamily: fonts.numeral, fontSize: sz(18), lineHeight: sz(24), color: INK },
+  status: { fontFamily: fonts.numeral, fontSize: sz(14), lineHeight: sz(20), color: '#584332', borderWidth: sz(2), borderColor: '#8a6a3a', paddingHorizontal: sz(8), paddingVertical: sz(1) },
   statusCurrent: { color: '#fff4dc', backgroundColor: '#a83a1f', borderColor: INK },
   statusCleared: { color: '#fff4dc', backgroundColor: '#3a6b2c', borderColor: INK },
-  flavour: { fontFamily: fonts.body, fontStyle: 'italic', fontSize: 14, lineHeight: 20, color: '#6a4a2a' },
-  lore: { fontFamily: fonts.body, fontSize: 16, lineHeight: 25, color: INK, marginTop: 2 },
-  facts: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 18, rowGap: 2, marginTop: 6 },
-  actions: { flexDirection: 'row', marginTop: 12 },
+  flavour: { fontFamily: fonts.body, fontStyle: 'italic', fontSize: sz(14), lineHeight: sz(20), color: '#6a4a2a' },
+  lore: { fontFamily: fonts.body, fontSize: sz(16), lineHeight: sz(25), color: INK, marginTop: sz(2) },
+  facts: { flexDirection: 'row', flexWrap: 'wrap', columnGap: sz(18), rowGap: sz(2), marginTop: sz(6) },
+  actions: { flexDirection: 'row', marginTop: sz(12) },
 });

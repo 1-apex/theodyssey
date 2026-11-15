@@ -22,6 +22,7 @@ import { VoyageProgress } from '@/features/voyageMap/VoyageProgress';
 import { haversineM } from '@/lib/geo';
 import { shortPlaceName } from '@/features/odyssey/placeNames';
 import { app, c, map } from '@/theme/copy';
+import { SCALE, sz } from '@/theme/scale';
 import { fonts } from '@/theme/typography';
 
 function describe(result: ClearStageResult): string {
@@ -159,8 +160,8 @@ export default function Voyage() {
 }
 
 const st = StyleSheet.create({
-  route: { fontSize: 14, lineHeight: 20, color: '#c1e6ed', marginTop: -6, marginBottom: 12 },
-  statsText: { fontFamily: fonts.numeral, fontSize: 17, lineHeight: 22, letterSpacing: 0.5, color: '#dfc48b' },
-  next: { borderWidth: 2, borderColor: '#b17000', backgroundColor: '#021630', paddingVertical: 10, paddingHorizontal: 14, minHeight: 44, justifyContent: 'center', marginBottom: 4 },
-  nextText: { fontFamily: fonts.numeral, fontSize: 18, lineHeight: 24, color: '#f0bb3b' },
+  route: { fontSize: sz(14), lineHeight: sz(20), color: '#c1e6ed', marginTop: sz(-6), marginBottom: sz(12) },
+  statsText: { fontFamily: fonts.numeral, fontSize: sz(17), lineHeight: sz(22), letterSpacing: 0.5 * SCALE, color: '#dfc48b' },
+  next: { borderWidth: sz(2), borderColor: '#b17000', backgroundColor: '#021630', paddingVertical: sz(10), paddingHorizontal: sz(14), minHeight: sz(44), justifyContent: 'center', marginBottom: sz(4) },
+  nextText: { fontFamily: fonts.numeral, fontSize: sz(18), lineHeight: sz(24), color: '#f0bb3b' },
 });

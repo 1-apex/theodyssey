@@ -7,6 +7,7 @@ import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-nativ
 import { CLOUD_ROWS } from '@/components/PixelCloud';
 import { shortPlaceName } from '@/features/odyssey/placeNames';
 import { map } from '@/theme/copy';
+import { sz, spx } from '@/theme/scale';
 import { fonts } from '@/theme/typography';
 import type { Point } from './layout';
 import {
@@ -24,8 +25,8 @@ import {
 
 export type StopState = 'cleared' | 'current' | 'ahead';
 
-const MARKER_H = 56;
-const ISLAND_SIZE = 4;
+const MARKER_H = sz(56);
+const ISLAND_SIZE = spx(4);
 
 export interface StopProps {
   order: number;
@@ -54,7 +55,7 @@ function XMark({ reducedMotion }: { reducedMotion: boolean }) {
   }, [pulse, reducedMotion]);
   return (
     <Animated.View pointerEvents="none" style={[styles.x, { transform: [{ scale: pulse }] }]}>
-      <AsciiSprite rows={X_ROWS} palette={markPalette} size={2.5} outline />
+      <AsciiSprite rows={X_ROWS} palette={markPalette} size={spx(2.5)} outline />
     </Animated.View>
   );
 }
@@ -70,7 +71,7 @@ export function MapStop({ order, name, at, labelWidth, state, isFinal, reducedMo
       accessibilityLabel={map.stopLabel(place, order, status)}
       accessibilityHint={map.stopHint}
       onPress={onPress}
-      hitSlop={6}
+      hitSlop={sz(6)}
       style={[styles.stop, { left: at.x - labelWidth / 2, top: at.y - MARKER_H / 2, width: labelWidth }]}
     >
       <View style={styles.marker}>
@@ -79,7 +80,7 @@ export function MapStop({ order, name, at, labelWidth, state, isFinal, reducedMo
           {state === 'current' && <XMark reducedMotion={reducedMotion} />}
           {state === 'cleared' && (
             <View pointerEvents="none" style={styles.flag}>
-              <AsciiSprite rows={FLAG_ROWS} palette={markPalette} size={3} />
+              <AsciiSprite rows={FLAG_ROWS} palette={markPalette} size={spx(3)} />
             </View>
           )}
           <View pointerEvents="none" style={styles.number}>
@@ -102,7 +103,7 @@ export function FogPatch({ at, labelWidth }: { at: Point; labelWidth: number }) 
       style={[styles.stop, { left: at.x - labelWidth / 2, top: at.y - MARKER_H / 2, width: labelWidth }]}
     >
       <View style={styles.marker}>
-        <AsciiSprite rows={CLOUD_ROWS} palette={FOG_PALETTE} size={2} />
+        <AsciiSprite rows={CLOUD_ROWS} palette={FOG_PALETTE} size={spx(2)} />
         <Text style={styles.question}>?</Text>
       </View>
       <Text numberOfLines={1} style={[styles.label, styles.fogLabel]}>
@@ -115,33 +116,33 @@ export function FogPatch({ at, labelWidth }: { at: Point; labelWidth: number }) 
 const styles = StyleSheet.create({
   stop: { position: 'absolute', alignItems: 'center' },
   marker: { height: MARKER_H, alignItems: 'center', justifyContent: 'center' },
-  x: { position: 'absolute', left: 25, top: 12 },
-  flag: { position: 'absolute', right: -6, top: -10 },
+  x: { position: 'absolute', left: sz(25), top: sz(12) },
+  flag: { position: 'absolute', right: sz(-6), top: sz(-10) },
   number: {
     position: 'absolute',
-    left: -12,
-    top: -8,
-    minWidth: 20,
-    height: 20,
-    paddingHorizontal: 3,
+    left: sz(-12),
+    top: sz(-8),
+    minWidth: sz(20),
+    height: sz(20),
+    paddingHorizontal: sz(3),
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#f5ebce',
-    borderWidth: 2,
+    borderWidth: sz(2),
     borderColor: INK,
   },
-  numberText: { fontFamily: fonts.numeral, fontSize: 14, lineHeight: 17, color: INK },
+  numberText: { fontFamily: fonts.numeral, fontSize: sz(14), lineHeight: sz(17), color: INK },
   label: {
     fontFamily: fonts.body,
-    fontSize: 13,
-    lineHeight: 15,
+    fontSize: sz(13),
+    lineHeight: sz(15),
     color: INK,
     textAlign: 'center',
     backgroundColor: 'rgba(240, 226, 186, 0.86)',
-    paddingHorizontal: 3,
-    paddingVertical: 1,
-    marginTop: -2,
+    paddingHorizontal: sz(3),
+    paddingVertical: sz(1),
+    marginTop: sz(-2),
   },
   fogLabel: { fontStyle: 'italic', color: '#5d4630' },
-  question: { position: 'absolute', fontFamily: fonts.heading, fontSize: 12, lineHeight: 16, color: '#5d4630', top: 20 },
+  question: { position: 'absolute', fontFamily: fonts.heading, fontSize: sz(12), lineHeight: sz(16), color: '#5d4630', top: sz(20) },
 });

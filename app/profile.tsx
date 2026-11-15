@@ -11,6 +11,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { useMyVoyages } from '@/features/profile/useMyVoyages';
 import { formatDate, stagesLabel, voyageDate, voyageRoute, type Voyage } from '@/features/profile/voyages';
 import { app, profile } from '@/theme/copy';
+import { sz } from '@/theme/scale';
 import { fonts } from '@/theme/typography';
 
 type Saving = 'idle' | 'saved' | 'error';
@@ -20,9 +21,9 @@ const terracotta = '#b84d1f';
 
 function Stat({ value, label }: { value: number; label: string }) {
   return (
-    <View style={{ flexGrow: 1, flexBasis: '40%', backgroundColor: '#e8d5a0', borderWidth: 2, borderColor: '#392619', padding: 10 }}>
-      <T style={{ fontFamily: fonts.ui, fontSize: 20, lineHeight: 28, color: ink }}>{value}</T>
-      <T style={{ fontFamily: fonts.heading, fontSize: 8, lineHeight: 14, color: terracotta }}>{label}</T>
+    <View style={{ flexGrow: 1, flexBasis: '40%', backgroundColor: '#e8d5a0', borderWidth: sz(2), borderColor: '#392619', padding: sz(10) }}>
+      <T style={{ fontFamily: fonts.ui, fontSize: sz(20), lineHeight: sz(28), color: ink }}>{value}</T>
+      <T style={{ fontFamily: fonts.heading, fontSize: sz(8), lineHeight: sz(14), color: terracotta }}>{label}</T>
     </View>
   );
 }
@@ -40,21 +41,21 @@ function VoyageCard({ v }: { v: Voyage }) {
       accessibilityLabel={profile.openVoyage(route, status)}
       onPress={() => router.push(voyageRoute(v))}
       style={({ pressed }) => [
-        { borderWidth: 2, borderColor: '#392619', backgroundColor: '#f0e2b6', padding: 12, marginTop: 12 },
+        { borderWidth: sz(2), borderColor: '#392619', backgroundColor: '#f0e2b6', padding: sz(12), marginTop: sz(12) },
         pressed && { opacity: 0.8 },
       ]}
     >
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: sz(6), marginBottom: sz(8) }}>
         <Badge text={status} dark={v.status === 'complete'} />
         {v.is_captain && <Badge text={profile.captainBadge} />}
       </View>
-      <T style={{ fontFamily: fonts.ui, fontSize: 16, lineHeight: 24, color: ink, flexShrink: 1 }}>{route}</T>
-      <T style={[s.dark, { fontSize: 14, lineHeight: 21, marginTop: 4, flexShrink: 1 }]}>{v.title}</T>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', columnGap: 12, rowGap: 2, marginTop: 10 }}>
-        <T style={[s.dark, { fontSize: 14, lineHeight: 22 }]}>{stagesLabel(v.stages_cleared, v.stages_total)}</T>
-        <T style={[s.dark, { fontSize: 14, lineHeight: 22, color: terracotta }]}>{profile.drachma(v.my_points)}</T>
+      <T style={{ fontFamily: fonts.ui, fontSize: sz(16), lineHeight: sz(24), color: ink, flexShrink: 1 }}>{route}</T>
+      <T style={[s.dark, { fontSize: sz(14), lineHeight: sz(21), marginTop: sz(4), flexShrink: 1 }]}>{v.title}</T>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', columnGap: sz(12), rowGap: sz(2), marginTop: sz(10) }}>
+        <T style={[s.dark, { fontSize: sz(14), lineHeight: sz(22) }]}>{stagesLabel(v.stages_cleared, v.stages_total)}</T>
+        <T style={[s.dark, { fontSize: sz(14), lineHeight: sz(22), color: terracotta }]}>{profile.drachma(v.my_points)}</T>
       </View>
-      <T style={[s.dark, { fontSize: 12, lineHeight: 20, opacity: 0.7 }]}>{formatDate(voyageDate(v))}</T>
+      <T style={[s.dark, { fontSize: sz(12), lineHeight: sz(20), opacity: 0.7 }]}>{formatDate(voyageDate(v))}</T>
     </Pressable>
   );
 }
@@ -106,15 +107,15 @@ export default function Profile() {
         <T style={s.darkTitle}>{username ?? ''}</T>
         <Label>{profile.avatarLabel}</Label>
         <Avatars value={avatar} onChange={(i) => void pick(i)} />
-        <T style={[s.dark, { marginTop: 12 }]}>{profile.avatarHint}</T>
-        <View style={{ minHeight: 24, marginTop: 8 }} accessibilityLiveRegion="polite">
+        <T style={[s.dark, { marginTop: sz(12) }]}>{profile.avatarHint}</T>
+        <View style={{ minHeight: sz(24), marginTop: sz(8) }} accessibilityLiveRegion="polite">
           {result === 'saved' && <T style={[s.dark, { color: '#195c2e' }]}>{profile.saved}</T>}
           {result === 'error' && <T style={[s.dark, { color: '#cc2827' }]}>{profile.saveError}</T>}
         </View>
       </View>
-      <View style={[s.parchment, { marginTop: 20 }]}>
+      <View style={[s.parchment, { marginTop: sz(20) }]}>
         <Label>{profile.summaryLabel}</Label>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: sz(8) }}>
           <Stat value={summary.points} label={`◈ ${profile.drachmaEarned}`} />
           <Stat value={summary.voyages} label={profile.voyagesStat} />
           <Stat value={summary.completed} label={profile.completedStat} />
@@ -122,32 +123,32 @@ export default function Profile() {
         </View>
         <Label>{profile.voyagesLabel}</Label>
         {loading && voyages.length === 0 && error === null ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }} accessibilityLiveRegion="polite">
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: sz(10) }} accessibilityLiveRegion="polite">
             <ActivityIndicator color={terracotta} />
             <T style={s.dark}>{profile.voyagesLoading}</T>
           </View>
         ) : error !== null && voyages.length === 0 ? (
           <View accessibilityLiveRegion="polite">
             <T style={[s.dark, { color: '#cc2827' }]}>{profile.voyagesError}</T>
-            <Pressable accessibilityRole="button" onPress={() => void reload()} style={{ marginTop: 8 }}>
+            <Pressable accessibilityRole="button" onPress={() => void reload()} style={{ marginTop: sz(8) }}>
               <T style={[s.dark, { textDecorationLine: 'underline' }]}>{profile.retry}</T>
             </Pressable>
           </View>
         ) : voyages.length === 0 ? (
           <T style={s.dark}>{profile.voyagesEmpty}</T>
         ) : (
-          <View style={{ marginTop: -12 }}>
+          <View style={{ marginTop: sz(-12) }}>
             {voyages.map((v) => (
               <VoyageCard key={v.odyssey_id} v={v} />
             ))}
           </View>
         )}
       </View>
-      <T accessibilityRole="button" onPress={() => void signOut()} style={[s.hint, { textDecorationLine: 'underline', marginTop: 24 }]}>
+      <T accessibilityRole="button" onPress={() => void signOut()} style={[s.hint, { textDecorationLine: 'underline', marginTop: sz(24) }]}>
         {app.auth.signOut}
       </T>
       {signOutError && (
-        <T accessibilityLiveRegion="polite" style={[s.hint, { color: '#cc2827', marginTop: 8 }]}>
+        <T accessibilityLiveRegion="polite" style={[s.hint, { color: '#cc2827', marginTop: sz(8) }]}>
           {app.errors.unknown}
         </T>
       )}

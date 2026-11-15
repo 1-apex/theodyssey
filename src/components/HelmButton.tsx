@@ -4,6 +4,7 @@
 import { Pressable } from 'react-native';
 
 import { profile } from '@/theme/copy';
+import { sz } from '@/theme/scale';
 import { colors, PixelSprite } from './PixelSprite';
 
 const HELM = [
@@ -34,15 +35,15 @@ export function HelmButton({ onPress }: { onPress: () => void }) {
       onPress={onPress}
       style={({ pressed }) => [
         {
-          width: 48,
-          height: 48,
+          width: sz(48),
+          height: sz(48),
           alignItems: 'center',
           justifyContent: 'center',
-          borderWidth: 3,
+          borderWidth: sz(3),
           borderColor: colors['gold-dark'],
           backgroundColor: '#021d34',
         },
-        pressed && { opacity: 0.8, transform: [{ translateY: 2 }] },
+        pressed && { opacity: 0.8, transform: [{ translateY: sz(2) }] },
       ]}
     >
       <PixelSprite rows={HELM} size={2} />

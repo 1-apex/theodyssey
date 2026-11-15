@@ -13,6 +13,7 @@ import { AuthError, enter } from './api';
 import { normalizeUsername, PASSWORD_MIN, USERNAME_MAX, USERNAME_PATTERN } from './username';
 import { isSupabaseConfigured } from '../../lib/supabase';
 import { app, c, copy } from '../../theme/copy';
+import { sz } from '../../theme/scale';
 
 /** Long enough that the clouds read as a transition even on a fast connection. */
 const MIN_HOLD_MS = 900;
@@ -61,11 +62,11 @@ export function StartScreen() {
         <T style={s.logo}>{c.brand}</T>
         <Border />
       </View>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: sz(12) }}>
         <Cloud />
         <Cloud />
       </View>
-      <T style={[s.heroBody, { marginTop: 4, marginBottom: 20 }]}>{app.auth.line}</T>
+      <T style={[s.heroBody, { marginTop: sz(4), marginBottom: sz(20) }]}>{app.auth.line}</T>
       <View style={s.parchment}>
         <Label>{app.auth.usernameLabel}</Label>
         <Input
@@ -76,7 +77,7 @@ export function StartScreen() {
           maxLength={USERNAME_MAX}
           autoCapitalize="none"
         />
-        <T style={[s.dark, { fontSize: 13, lineHeight: 20, marginTop: 6 }]}>{app.auth.usernameHint}</T>
+        <T style={[s.dark, { fontSize: sz(13), lineHeight: sz(20), marginTop: sz(6) }]}>{app.auth.usernameHint}</T>
         <Label>{app.auth.passwordLabel}</Label>
         <Input
           label={app.auth.passwordLabel}
