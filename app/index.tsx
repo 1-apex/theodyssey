@@ -1,39 +1,34 @@
-// Placeholder home screen for Phase 0. Dev A replaces this with the real pixel UI.
+// Home: create an Odyssey or join a crew.
 
-import { Link } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { Link, router } from 'expo-router';
+import { View } from 'react-native';
 
-import { mockOdyssey, mockStages } from '@/lib/mock';
-import { colors } from '@/theme/colors';
-import { copy } from '@/theme/copy';
+import { Border, HomeArt, Stars } from '@/components/PixelScene';
+import { Button, Shell, T, s } from '@/components/ui';
+import { isSupabaseConfigured } from '@/lib/supabase';
+import { app, c, copy } from '@/theme/copy';
 
 export default function Home() {
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>{copy.home.title}</Text>
-      <Text style={styles.tagline}>{copy.home.tagline}</Text>
-      <Text style={styles.mock}>
-        {copy.home.mockSummary(mockOdyssey.title, mockStages.length)}
-      </Text>
-      {__DEV__ && (
-        <Link href="/debug" style={styles.link}>
-          {copy.home.debug}
-        </Link>
-      )}
-    </View>
+    <Shell home>
+      <Stars />
+      <View style={s.homeTitle}>
+        <Border />
+        <T style={s.logo}>{c.brand}</T>
+        <Border />
+      </View>
+      <T style={s.heroBody}>{c.homeLine}</T>
+      <HomeArt />
+      <View style={{ marginTop: 'auto' }}>
+        {!isSupabaseConfigured && <T style={s.error}>{app.notConfigured}</T>}
+        <Button title={c.begin} onPress={() => router.push('/create')} />
+        <Button title={c.join} onPress={() => router.push('/join')} secondary />
+        {__DEV__ && (
+          <Link href="/debug" style={[s.text, s.hint]}>
+            {copy.home.debug}
+          </Link>
+        )}
+      </View>
+    </Shell>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.sea,
-    gap: 12,
-  },
-  title: { color: colors.gold, fontSize: 40, fontWeight: '900', letterSpacing: 6 },
-  tagline: { color: colors.foam, fontSize: 16 },
-  mock: { color: colors.fog, fontSize: 12, marginTop: 24 },
-  link: { color: colors.sea, backgroundColor: colors.gold, fontSize: 16, fontWeight: '800', padding: 14 },
-});
