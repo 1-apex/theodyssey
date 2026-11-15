@@ -50,7 +50,9 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test \"src/**/*.test.ts\""
+    "test": "node --import tsx --test \"src/**/*.test.ts\"",
+    "test:functions": "node --test \"supabase/functions/**/*.test.ts\"",
+    "test:app": "node scripts/app-e2e.mjs"
   },
   "private": true
 }

@@ -180,7 +180,7 @@ open supabase/scratch/tester.html
 
 The app is now connected to this backend. `README.md` has the steps to run it on a phone or in the browser and to play a voyage on two devices.
 
-`node scripts/app-e2e.mjs` does the same automatically against the local stack: it builds the web app, opens it in headless Chrome as a Captain and a Sailor, and plays a whole Odyssey through the screens, checking Realtime sync, fog, Drachma and the error messages. Expect `ALL 50 CHECKS PASSED`. Add `--mode=open`, `--points=arriver` or `--oracle` for the other paths.
+`npm run test:app` (`node scripts/app-e2e.mjs`) does the same automatically against the local stack. It builds the web app, starts a mock Gemini/Mapbox server and `supabase functions serve` pointed at it (so it needs Docker and the local stack, but no API keys or internet), and opens headless Chrome as a Captain and a Sailor (plus a third account for the failure paths). Each phone signs up with a random username. It plays the whole flow through the screens: profile and avatar, the chat with Odysseus (including one failed call and Try again), summon, preview, lobby, join, Realtime sync, fog, every stage, Drachma, Ithaca, sign out and back in. Failure paths on the third phone: two chat failures in a row lead to the scripted fallback, then a failed summon leads to "Sail the demo route instead". Run the default (fog, whole crew), `--mode=open` and `--points=arriver`; each prints `ALL <n> CHECKS PASSED`. The mock and the functions are stopped when the script ends, also on failure or Ctrl-C. `npm run test:functions` runs the Edge Function unit tests.
 
 ## Part 6: Demo readiness
 
