@@ -19,6 +19,7 @@ function Screens() {
       <Stack.Protected guard={status === 'signedIn'}>
         <Stack.Screen name="storyteller" />
         <Stack.Screen name="join" />
+        <Stack.Screen name="profile" />
         <Stack.Screen name="odyssey/[id]" />
       </Stack.Protected>
       {/* Dev C's test screen runs on mock data and needs no account. */}

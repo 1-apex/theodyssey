@@ -4,10 +4,10 @@
 import { Link, router } from 'expo-router';
 import { View } from 'react-native';
 
-import { useCloudCurtain } from '@/components/CloudCurtain';
+import { HelmButton } from '@/components/HelmButton';
+import { PixelAvatar } from '@/components/PixelAvatar';
 import { Border, HomeArt, Stars } from '@/components/PixelScene';
 import { Button, Shell, T, s } from '@/components/ui';
-import { leave } from '@/features/auth/api';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { StartScreen } from '@/features/auth/StartScreen';
 import { isSupabaseConfigured } from '@/lib/supabase';
@@ -19,18 +19,14 @@ export default function Index() {
 }
 
 function Home() {
-  const { username } = useAuth();
-  const curtain = useCloudCurtain();
-
-  const signOut = async () => {
-    await curtain.close(app.auth.cloudsSignOut);
-    await leave();
-    await curtain.open();
-  };
+  const { username, avatar } = useAuth();
 
   return (
     <Shell home>
       <Stars />
+      <View style={{ position: 'absolute', top: 8, right: 12 }}>
+        <HelmButton onPress={() => router.push('/profile')} />
+      </View>
       <View style={s.homeTitle}>
         <Border />
         <T style={s.logo}>{c.brand}</T>
@@ -42,10 +38,12 @@ function Home() {
         {!isSupabaseConfigured && <T style={s.error}>{app.notConfigured}</T>}
         <Button title={c.begin} onPress={() => router.push('/storyteller')} />
         <Button title={c.join} onPress={() => router.push('/join')} secondary />
-        {username !== null && <T style={s.hint}>{app.auth.signedInAs(username)}</T>}
-        <T accessibilityRole="button" onPress={() => void signOut()} style={[s.hint, { textDecorationLine: 'underline' }]}>
-          {app.auth.signOut}
-        </T>
+        {username !== null && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 8 }}>
+            <PixelAvatar index={avatar} size={2} />
+            <T style={[s.hint, { marginTop: 0 }]}>{app.auth.signedInAs(username)}</T>
+          </View>
+        )}
         {__DEV__ && (
           <Link href="/debug" style={[s.text, s.hint]}>
             {copy.home.debug}
