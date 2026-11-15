@@ -12,6 +12,7 @@
 // the function has no npm dependencies to download or bundle.
 
 import { consultOracle, OracleError, type OracleRequest } from './oracle.ts';
+import { retryKeys } from '../_shared/gemini.ts';
 import { callerId, CORS, fail, json, serviceKey } from '../_shared/http.ts';
 
 // ---------------------------------------------------------------------------
@@ -118,8 +119,9 @@ async function consultWithRetry(
     return await consultOracle(...args);
   } catch (e) {
     if (!(e instanceof OracleError) || !RETRYABLE.includes(e.code)) throw e;
-    console.warn(`oracle attempt 1 failed [${e.code}], retrying: ${e.message}`);
-    return await consultOracle(...args);
+    console.warn(`oracle attempt 1 failed [${e.code}], retrying on the fallback model: ${e.message}`);
+    const [request, keys] = args;
+    return await consultOracle(request, retryKeys(keys));
   }
 }
 

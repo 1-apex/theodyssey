@@ -95,7 +95,7 @@ If it fails:
 | `[endpoint_not_found]` | Mapbox could not find the start or destination | Try a more specific name |
 | `[too_few_stages]` | Too many stages failed to geocode | Run again; if it repeats, try a stronger model with `LLM_MODEL` |
 
-The default model is `gemini-3.1-flash-lite`, the cheapest one open to new API keys. If routes are dull or often contain fake places, set `LLM_MODEL=gemini-3.8-flash` and compare.
+The default model is `gemma-4-31b-it` (Gemma 4 31B). It is often overloaded (503), so each function's single retry goes to `gemini-3.1-flash-lite` instead. If routes are dull or often contain fake places, set `LLM_MODEL=gemini-3.8-flash` and compare.
 
 ## Part 3: Set up the hosted project (about 5 minutes, once)
 

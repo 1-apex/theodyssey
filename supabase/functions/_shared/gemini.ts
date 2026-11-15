@@ -1,10 +1,17 @@
 // Gemini Interactions API call with structured JSON output.
 // Runtime-agnostic (only `fetch`): used by the Edge Functions and Node scratch scripts.
 
-// Cheapest Gemini text model open to new API keys as of 2026-11 ($0.25 in /
-// $1.50 out per 1M tokens, has a free tier). gemini-2.5-flash-lite is cheaper
-// but returns 404 for new accounts. Override with the LLM_MODEL secret.
-export const DEFAULT_MODEL = 'gemini-3.1-flash-lite';
+// Gemma 4 31B, served through the same Gemini API. Override with the LLM_MODEL secret.
+export const DEFAULT_MODEL = 'gemma-4-31b-it';
+
+// Gemma is often overloaded (503 "high demand"). The one retry each function
+// makes goes to this model instead, so a busy Gemma does not fail the request.
+export const FALLBACK_MODEL = 'gemini-3.1-flash-lite';
+
+/** Keys for the retry: the fallback model, unless that is what just failed. */
+export function retryKeys<K extends { model?: string }>(keys: K): K {
+  return (keys.model ?? DEFAULT_MODEL) === FALLBACK_MODEL ? keys : { ...keys, model: FALLBACK_MODEL };
+}
 
 export interface GeminiKeys {
   llmApiKey: string;
