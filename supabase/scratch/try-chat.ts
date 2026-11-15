@@ -8,19 +8,19 @@
 //
 // Interactive mode reads lines from stdin (Ctrl-D to quit). --script plays the
 // given traveler lines in order and prints each reply, the trip draft, ready
-// and on_topic. Needs LLM_API_KEY (and optionally LLM_MODEL) in
+// and on_topic. Needs LLM_API_KEY (and optionally LLM_CHAT_MODEL / LLM_MODEL) in
 // supabase/functions/.env.
 
 import { createInterface } from 'node:readline';
 import { chatWithOdysseus, type ChatMessage, ChatError } from '../functions/odysseus-chat/chat.ts';
-import { DEFAULT_MODEL } from '../functions/_shared/gemini.ts';
+import { modelFor } from '../functions/_shared/gemini.ts';
 
 const llmApiKey = process.env.LLM_API_KEY;
 if (!llmApiKey) {
   console.error('Set LLM_API_KEY in supabase/functions/.env (see the header of this file).');
   process.exit(1);
 }
-const keys = { llmApiKey, model: process.env.LLM_MODEL ?? DEFAULT_MODEL };
+const keys = { llmApiKey, model: modelFor('chat', (n) => process.env[n]) };
 
 const args = process.argv.slice(2);
 const scriptAt = args.indexOf('--script');

@@ -10,6 +10,7 @@
 
 import { chatWithOdysseus, ChatError, parseChatRequest } from './chat.ts';
 import { callerId, CORS, fail, json, serviceKey } from '../_shared/http.ts';
+import { modelFor } from '../_shared/gemini.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 
@@ -32,7 +33,7 @@ Deno.serve(async (req) => {
   try {
     const result = await chatWithOdysseus(messages, {
       llmApiKey,
-      model: Deno.env.get('LLM_MODEL') ?? undefined,
+      model: modelFor('chat', (n) => Deno.env.get(n)),
       llmBaseUrl: Deno.env.get('LLM_BASE_URL') ?? undefined,
     });
     return json(result);

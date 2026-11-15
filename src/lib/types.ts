@@ -37,6 +37,12 @@ export interface Stage {
   lat: number;
   lng: number;
   radius_m: number;
+  /**
+   * Drachma for clearing this stage, set by the Oracle from the leg length:
+   *   clamp(round-to-nearest-10(40 + 0.6 * leg_km), 50, 400), plus 150 for Ithaca (the last stage).
+   * leg_km is the great-circle distance from the previous point (the start for stage 1 of a road
+   * trip; the destination centre for a flight, which earns nothing; else the previous stage).
+   */
   points: number;
   cleared_at: string | null;
   /** Member id of whoever triggered the clear. */
@@ -78,6 +84,8 @@ export interface LatLng {
 // Backend call contracts
 // ---------------------------------------------------------------------------
 
+export type TravelMode = 'road' | 'flight';
+
 /** POST body for the `generate-odyssey` Edge Function. */
 export interface GenerateOdysseyRequest {
   start: string;
@@ -88,6 +96,11 @@ export interface GenerateOdysseyRequest {
   visibility_mode: VisibilityMode;
   /** Defaults to `crew`. */
   points_mode?: PointsMode;
+  /**
+   * Defaults to `road` (stops along the way). `flight` plans places to visit AT the destination,
+   * no stops on the way. Only affects generation: it is not stored on the Odyssey.
+   */
+  travel_mode?: TravelMode;
   /**
    * Optional, sent together. When present the Captain is added to the crew as
    * part of creation. Otherwise the Captain joins with `join_odyssey` like
@@ -219,6 +232,8 @@ export interface TripDraft {
   duration: string | null;
   travel_style: string | null;
   visibility_mode: 'open' | 'fog' | null;
+  /** 'road' covers any overland trip with stops (also train, bus, boat); 'flight' means flying straight there. */
+  travel_mode: TravelMode | null;
 }
 
 /** `POST /functions/v1/odysseus-chat`. 1 to 40 messages, oldest first, the last one from the traveler. */
@@ -230,7 +245,7 @@ export interface OdysseusChatResponse {
   /** What Odysseus says next. Plain text, about 350 characters at most. */
   reply: string;
   trip: TripDraft;
-  /** Start and destination are known and Odysseus has finished asking: show "Summon the Oracle". */
+  /** Start, destination and travel_mode are known and Odysseus has finished asking: show "Summon the Oracle". */
   ready: boolean;
   /** False when the traveler's last message was not about planning the trip. */
   on_topic: boolean;
@@ -244,3 +259,29 @@ export type OdysseusChatErrorCode =
   | 'llm_bad_output'
   | 'not_configured'
   | 'internal';
+
+// ---------------------------------------------------------------------------
+// Odysseus speaks (odysseus-voice)
+// ---------------------------------------------------------------------------
+
+/** `POST /functions/v1/odysseus-voice`. Signed-in, non-anonymous users only. */
+export interface OdysseusVoiceRequest {
+  /** 1 to 500 characters after trimming. */
+  text: string;
+}
+
+export interface OdysseusVoiceResponse {
+  /** Base64 of an MP3 (22.05 kHz, 32 kbps, mono speech). */
+  audio: string;
+  mime: 'audio/mpeg';
+}
+
+/** Error codes of odysseus-voice, in `{ error, message }`. `voice_not_configured` (503): stay silent. */
+export type OdysseusVoiceErrorCode =
+  | 'invalid_request' // 400
+  | 'not_authenticated' // 401
+  | 'account_required' // 403: anonymous user
+  | 'voice_not_configured' // 503
+  | 'voice_failed' // 502
+  | 'not_configured' // 500
+  | 'internal'; // 500

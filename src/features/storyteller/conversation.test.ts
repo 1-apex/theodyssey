@@ -219,7 +219,7 @@ test('tripToRequest applies the defaults and needs start and destination', () =>
     nickname: 'amy',
     avatar_id: 'avatar_2',
   });
-  const full: TripDraft = { start: 'A', destination: 'B', crew_size: 5, duration: '3 days', travel_style: 'food', visibility_mode: 'open' };
+  const full: TripDraft = { start: 'A', destination: 'B', crew_size: 5, duration: '3 days', travel_style: 'food', visibility_mode: 'open', travel_mode: 'road' };
   const r = tripToRequest(full, 'amy', 'avatar_0');
   assert.equal(r?.crew_size, 5);
   assert.equal(r?.visibility_mode, 'open');

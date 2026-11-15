@@ -37,3 +37,23 @@ export async function callerId(req: Request, supabaseUrl: string, key: string): 
   const user = await res.json();
   return typeof user?.id === 'string' ? user.id : null;
 }
+
+/**
+ * Like callerId, but also says whether the user is anonymous (no email or phone,
+ * `is_anonymous` set by Supabase for anonymous sign-ins). Null when the JWT is missing or invalid.
+ */
+export async function callerInfo(
+  req: Request,
+  supabaseUrl: string,
+  key: string,
+): Promise<{ id: string; anonymous: boolean } | null> {
+  const authorization = req.headers.get('Authorization');
+  if (!authorization) return null;
+  const res = await fetch(`${supabaseUrl}/auth/v1/user`, {
+    headers: { apikey: key, Authorization: authorization },
+  });
+  if (!res.ok) return null;
+  const user = await res.json();
+  if (typeof user?.id !== 'string') return null;
+  return { id: user.id, anonymous: user.is_anonymous === true };
+}
