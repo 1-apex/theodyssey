@@ -27,6 +27,7 @@ export function createMockBackend(seed: MockBackendSeed = {}): OdysseyBackend {
   return {
     getOdyssey: async () => ({ ...odyssey }),
     getVisibleStages: async () => visibleStages().map((s) => ({ ...s })),
+    getStageCount: async () => stages.length,
     getMembers: async () => members.map((m) => ({ ...m })),
     getLedger: async () => ledger.map((e) => ({ ...e })),
 

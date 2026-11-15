@@ -23,6 +23,11 @@ export interface OdysseyBackend {
   getOdyssey(odysseyId: string): Promise<Odyssey>;
   /** In fog mode this returns only cleared stages plus the current target. */
   getVisibleStages(odysseyId: string): Promise<Stage[]>;
+  /**
+   * Real number of stages, including ones hidden by fog, so the map can draw the hidden islands.
+   * Optional: without it, callers fall back to the number of visible stages.
+   */
+  getStageCount?(odysseyId: string): Promise<number>;
   getMembers(odysseyId: string): Promise<Member[]>;
   getLedger(odysseyId: string): Promise<LedgerEntry[]>;
   /**
