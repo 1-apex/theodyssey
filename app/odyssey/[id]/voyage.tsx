@@ -78,7 +78,11 @@ export default function Voyage() {
     else if (result === 'error') setNotice(app.gpsError);
   };
 
-  const message = notice || (travel.lastResult !== null ? describe(travel.lastResult) : '');
+  // A clear message is only about the stage most recently cleared; once the crew has moved on it goes.
+  const latestCleared = stages.reduce((max, stage) => (stage.cleared_at !== null ? Math.max(max, stage.order) : max), 0);
+  const last = travel.lastResult;
+  const lastIsStale = last !== null && last.status !== 'rejected' && last.stage.order < latestCleared;
+  const message = notice || (last !== null && !lastIsStale ? describe(last) : '');
 
   return (
     <Shell>
