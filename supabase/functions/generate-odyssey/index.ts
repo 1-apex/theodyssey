@@ -128,7 +128,7 @@ function parseBody(raw: unknown): Body | string {
     start,
     destination,
     crew_size: Number.isFinite(crew) ? Math.min(Math.max(Math.round(crew), 1), 20) : 2,
-    travel_style: str(b.travel_style, 300) ?? 'a balanced mix of sights and food',
+    travel_style: str(b.travel_style, 1000) ?? 'a balanced mix of sights and food',
     duration: str(b.duration, 60) ?? 'flexible',
     visibility_mode: b.visibility_mode,
     points_mode,
