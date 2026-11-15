@@ -7,10 +7,13 @@ import {ThoughtCloud} from '@/components/ThoughtCloud';
 import {colors} from '@/components/PixelSprite';
 import {fonts} from '@/theme/typography';
 import {app, storyteller as t} from '@/theme/copy';
+import {useAuth} from '@/features/auth/AuthProvider';
 import {avatarId,createOdyssey,toApiError} from '@/features/odyssey/api';
 
 // Guided frontend conversation; the existing server-side Oracle generates the route.
 export default function Storyteller(){
+ // The nickname question starts as the player's username; they can still change it for this crew.
+ const {username}=useAuth();
  const [answers,setAnswers]=useState<string[]>([]);
  const [input,setInput]=useState('');
  const [busy,setBusy]=useState(false);
@@ -22,7 +25,7 @@ export default function Storyteller(){
   const answer=input.trim();if(!answer||complete||busy)return;
   if(answers.length===2&&(!/^(?:[1-9]|1[0-9]|20)$/.test(answer))){setError(t.crewError);return}
   if(answers.length===5&&answer.length>24){setError(t.nameError);return}
-  setError('');setAnswers([...answers,answer]);setInput('');
+  setError('');setAnswers([...answers,answer]);setInput(answers.length===4?username??'':'');
  };
  const summon=async()=>{
   if(busy||!complete)return;
