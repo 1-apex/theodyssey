@@ -5,12 +5,15 @@ import { useState } from 'react';
 import { View } from 'react-native';
 
 import { Avatars, Bar, Button, Input, Label, Shell, T, s } from '@/components/ui';
+import { useAuth } from '@/features/auth/AuthProvider';
 import { avatarId, joinOdyssey, toApiError } from '@/features/odyssey/api';
 import { app, c } from '@/theme/copy';
 
 export default function Join() {
   const [code, setCode] = useState('');
-  const [name, setName] = useState('');
+  // The nickname starts as the player's username; they can still change it for this crew.
+  const { username } = useAuth();
+  const [name, setName] = useState(username ?? '');
   const [avatar, setAvatar] = useState(1);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
