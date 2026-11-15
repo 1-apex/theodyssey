@@ -37,7 +37,7 @@ export default function Voyage() {
   const [busy, setBusy] = useState<'sailing' | 'arriving' | null>(null);
   const [notice, setNotice] = useState('');
 
-  if (odyssey === null || stages === null || total === null || points === null) return <Notice text={app.loading} />;
+  if (odyssey === null || stages === null || total === null || points === null) return <Notice loading text={app.loading} />;
   if (odyssey.status === 'lobby') return <Redirect href={{ pathname: '/odyssey/[id]/lobby', params: { id } }} />;
 
   const complete = odyssey.status === 'complete';

@@ -22,7 +22,7 @@ export default function Ithaca() {
   const crew = useCrew(id);
   const points = usePoints(id);
   if (odyssey === null || stages === null || total === null || crew === null || points === null) {
-    return <Notice text={app.loading} />;
+    return <Notice loading text={app.loading} />;
   }
 
   const cleared = stages.filter((stage) => stage.cleared_at !== null).length;
