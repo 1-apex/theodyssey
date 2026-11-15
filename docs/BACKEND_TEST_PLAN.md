@@ -176,6 +176,12 @@ open supabase/scratch/tester.html
 4. **Realtime:** open the page in a second browser window, select a different crew member there, and press Subscribe. Clearing a stage in the first window should log a `REALTIME` event in the second and refresh its panels.
 5. **Security checks (section 8)** and **Tables (section 9)** show what a client is refused and which rows each user can read.
 
+## Testing through the app itself
+
+The app is now connected to this backend. `README.md` has the steps to run it on a phone or in the browser and to play a voyage on two devices.
+
+`node scripts/app-e2e.mjs` does the same automatically against the local stack: it builds the web app, opens it in headless Chrome as a Captain and a Sailor, and plays a whole Odyssey through the screens, checking Realtime sync, fog, Drachma and the error messages. Expect `ALL 50 CHECKS PASSED`. Add `--mode=open`, `--points=arriver` or `--oracle` for the other paths.
+
 ## Part 6: Demo readiness
 
 Do this on the day, on the venue network.
