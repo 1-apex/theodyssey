@@ -49,6 +49,8 @@ export interface OracleResult {
   stages: OracleStage[];
   /** Stages the LLM proposed that were dropped, with the reason. For logs. */
   dropped: { place: string; reason: string }[];
+  /** For logs: how many stages the Oracle aimed for, how many it asked the LLM for, and where the time went. */
+  plan: { target: number; requested: number; llm_ms: number; geocode_ms: number };
 }
 
 export type OracleErrorCode =
@@ -66,6 +68,12 @@ export class OracleError extends Error {
 }
 
 const MIN_STAGES = 3;
+/** Most stages a trip can have. */
+export const MAX_STAGES = 12;
+/** Extra candidates asked of the LLM: geocoding and the route checks drop a few, and the extras are trimmed afterwards. */
+export const SPARE_STAGES = 2;
+/** Stage count when neither the duration nor the distance says anything. */
+const DEFAULT_STAGES = 5;
 const RADIUS_M = 250;
 
 /**
@@ -111,6 +119,139 @@ export function pointsForStops(origin: LatLng, stops: LatLng[]): number[] {
     return pts;
   });
 }
+
+// ---------------------------------------------------------------------------
+// How many stages: the trip decides, the crew's wishes win
+// ---------------------------------------------------------------------------
+
+const NUMBER_WORDS: Record<string, number> = {
+  a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+  eleven: 11, twelve: 12, couple: 2, few: 3,
+};
+const NUM = '(\\d+(?:\\.\\d+)?|a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|couple|few)';
+const toNum = (w: string): number => (/^\d/.test(w) ? Number(w) : NUMBER_WORDS[w] ?? 1);
+
+/** Trip length in days from free text ("a long weekend", "10 days", "2 weeks", "6 hours"); null when unknown. */
+export function parseDays(duration: string): number | null {
+  const d = duration.toLowerCase();
+  let m = d.match(new RegExp(`${NUM}[\\s-]*(?:of\\s+)?(hours?|hrs?|days?|nights?|weeks?|months?)\\b`));
+  if (m) {
+    const n = toNum(m[1]);
+    const unit = m[2][0] === 'h' ? 'h' : m[2][0] === 'w' ? 'w' : m[2][0] === 'm' ? 'm' : 'd';
+    return unit === 'h' ? n / 24 : unit === 'w' ? n * 7 : unit === 'm' ? n * 30 : n;
+  }
+  if (/\blong weekend\b/.test(d)) return 4;
+  if (/\bweekend\b/.test(d)) return 3;
+  if (/\bfortnight\b/.test(d)) return 14;
+  if (/\bweek(?:-?long)?\b/.test(d)) return 7;
+  if (/\bmonth(?:-?long)?\b/.test(d)) return 30;
+  if (/\b(day trip|day-trip|one day|a day|overnight|today)\b/.test(d)) return 1;
+  return null;
+}
+
+/** Stages that fit a trip of this many days. */
+export function stagesForDays(days: number): number {
+  if (days <= 0.5) return 3;
+  if (days <= 1) return 4;
+  if (days <= 2) return 5;
+  if (days <= 3) return 6;
+  if (days <= 5) return 7;
+  if (days <= 8) return 8;
+  if (days <= 13) return 10;
+  return 12;
+}
+
+/** Stages that fit a road route of this straight-line length: about one per 170 km after a base of 3. */
+export function stagesForKm(km: number): number {
+  return Math.min(MAX_STAGES, Math.max(MIN_STAGES, Math.round(3 + km / 170)));
+}
+
+/**
+ * What the traveller asked for in their own words: an explicit number ("5 stops")
+ * or a pace ("lots of stops", "just a couple of stops"). Null when they said nothing about it.
+ */
+export function wishedStages(text: string): { count: number } | { more: true } | { fewer: true } | null {
+  const t = text.toLowerCase();
+  const what = '(?:stops?|stages?|places?|spots?|sights?|islands?|attractions?|destinations?|waypoints?|checkpoints?)';
+  const n = t.match(new RegExp(`\\b${NUM}\\s+(?:or so\\s+)?${what}\\b`));
+  if (n) {
+    const count = toNum(n[1]);
+    // "a couple of stops" / "a few stops" / "just one stop" read as "fewer", not as an exact count.
+    if (/^(a|an|one|couple|few)$/.test(n[1])) return { fewer: true };
+    if (count >= 1) return { count: Math.round(count) };
+  }
+  if (/\b(lots? of|loads of|plenty of|many|as many|tons of|packed|jam-packed|more)\s+(?:\w+\s+)?(?:stops?|stages?|places|spots|sights|things)\b/.test(t) || /\bpacked itinerary\b/.test(t)) {
+    return { more: true };
+  }
+  if (/\b(not many|fewer|minimal|hardly any|barely any|only a few|just a few|just a couple|only a couple)\b/.test(t)) {
+    return { fewer: true };
+  }
+  return null;
+}
+
+/**
+ * How many stages the Oracle plans, final destination included. From the trip's
+ * duration and (road only) its straight-line length; the traveller's own words
+ * ("lots of stops", "just a couple", "6 stops") win. Always 3 to 12.
+ */
+export function chooseStageCount(
+  req: Pick<OracleRequest, 'duration' | 'travel_style' | 'travel_mode'>,
+  routeKm: number,
+): number {
+  const days = parseDays(req.duration ?? '');
+  const byDays = days === null ? null : stagesForDays(days);
+  const byKm = req.travel_mode === 'flight' ? null : stagesForKm(routeKm);
+  const parts = [byDays, byKm].filter((n): n is number => n !== null);
+  const base = parts.length > 0 ? Math.round(parts.reduce((a, b) => a + b, 0) / parts.length) : DEFAULT_STAGES;
+
+  const wish = wishedStages(req.travel_style ?? '');
+  let n = base;
+  if (wish) {
+    if ('count' in wish) n = wish.count;
+    else if ('more' in wish) n = Math.max(base + 3, 8);
+    else n = Math.min(base - 2, 4);
+  }
+  return Math.min(MAX_STAGES, Math.max(MIN_STAGES, n));
+}
+
+/**
+ * Removes the stages that crowd their neighbour most until `target` are left:
+ * the interior stage with the shortest leg from the previous stop goes first.
+ * The last stage (Ithaca) is never removed. Returns the indices to keep.
+ */
+export function trimIndices(origin: LatLng, stops: LatLng[], target: number): number[] {
+  const keep = stops.map((_, i) => i);
+  while (keep.length > target && keep.length > 1) {
+    let worst = 0;
+    let shortest = Infinity;
+    for (let k = 0; k < keep.length - 1; k++) {
+      const prev = k === 0 ? origin : stops[keep[k - 1]];
+      const leg = haversineKm(prev, stops[keep[k]]);
+      if (leg < shortest) {
+        shortest = leg;
+        worst = k;
+      }
+    }
+    keep.splice(worst, 1);
+  }
+  return keep;
+}
+
+/** map() with at most `limit` calls in flight (the geocoder is polite to a handful at once). */
+export async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const out = new Array<R>(items.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const i = next++;
+      out[i] = await fn(items[i]);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return out;
+}
+
+const GEOCODE_CONCURRENCY = 8;
 
 // ---------------------------------------------------------------------------
 // LLM (Gemini Interactions API)
@@ -163,7 +304,7 @@ const ROAD_INSTRUCTION = `You are the Oracle, a planner of road trips told in th
 Given a start, a destination, and the crew's wishes, plan the voyage as a series of stages.
 
 Rules:
-- Return 5 to 7 stages in travel order, each one further along the drive from start to destination. No backtracking and no big detours.
+- Return exactly the number of stages given as "Stages to return" in the request, in travel order, each one further along the drive from start to destination. No backtracking and no big detours.
 - Spread the stages along the whole drive. Do not cluster them near the start or leave one very long empty stretch.
 - The final stage MUST be the destination itself.
 - Do not include the start as a stage.
@@ -174,14 +315,14 @@ const FLIGHT_INSTRUCTION = `You are the Oracle, a planner of trips told in the v
 The crew flies directly to the destination, so there are NO stops on the way. Given the destination and the crew's wishes, plan what they visit once they have landed.
 
 Rules:
-- Return 5 to 7 stages, all AT or very near the destination: the same city or its immediate region, within an hour's travel of the destination. Never places in other cities or countries.
+- Return exactly the number of stages given as "Stages to return" in the request, all AT or very near the destination: the same city or its immediate region, within an hour's travel of the destination. Never places in other cities or countries.
 - Order them as a sensible visiting sequence (each stage close to the previous one, no zig-zagging across town).
 - The FINAL stage is the single most iconic place to visit at the destination.
 - Do not include the start city or the airport as a stage.
 - Honour the crew's must-see places and things to avoid when they are mentioned in the travel style.
 ${NAME_RULES}`;
 
-function userPrompt(req: OracleRequest): string {
+function userPrompt(req: OracleRequest, stageCount: number): string {
   const flight = req.travel_mode === 'flight';
   return [
     `Start: ${req.start}`,
@@ -190,6 +331,7 @@ function userPrompt(req: OracleRequest): string {
     `Crew size: ${req.crew_size}`,
     `Travel style: ${req.travel_style}`,
     `Duration: ${req.duration}`,
+    `Stages to return: ${stageCount}`,
   ].join('\n');
 }
 
@@ -213,17 +355,18 @@ function cleanStage(s: LlmStage): LlmStage {
   };
 }
 
-export async function askOracle(req: OracleRequest, keys: OracleKeys): Promise<LlmRoute> {
+export async function askOracle(req: OracleRequest, keys: OracleKeys, stageCount = DEFAULT_STAGES): Promise<LlmRoute> {
   let data: unknown;
   let raw: string;
   try {
     ({ data, raw } = await askGemini(
       {
         system: req.travel_mode === 'flight' ? FLIGHT_INSTRUCTION : ROAD_INSTRUCTION,
-        input: userPrompt(req),
+        input: userPrompt(req, stageCount),
         schema: ROUTE_SCHEMA,
       },
-      keys,
+      // About 110 tokens per stage were measured; the cap only stops a runaway.
+      { maxOutputTokens: 800 + 300 * stageCount, ...keys },
     ));
   } catch (e) {
     if (e instanceof GeminiError) throw new OracleError(e.code, e.message);
@@ -370,6 +513,7 @@ export function realName(s: Pick<LlmStage, 'place_name' | 'city_region'>): strin
 
 export async function consultOracle(req: OracleRequest, keys: OracleKeys): Promise<OracleResult> {
   const flight = req.travel_mode === 'flight';
+  const t0 = Date.now();
   // Endpoints first: cheap, and there is no point asking the LLM if they fail.
   const [start, destination] = await Promise.all([
     geocode(req.start, keys),
@@ -380,7 +524,12 @@ export async function consultOracle(req: OracleRequest, keys: OracleKeys): Promi
     throw new OracleError('endpoint_not_found', `Could not find the destination: ${req.destination}`);
   }
 
-  const route = await askOracle(req, keys);
+  // The trip decides how many stages; the LLM gets a couple of spares to cover what the checks below drop.
+  const target = chooseStageCount(req, haversineKm(start, destination));
+  const requested = target + SPARE_STAGES;
+  const t1 = Date.now();
+  const route = await askOracle(req, keys, requested);
+  const t2 = Date.now();
   if (route.stages.length === 0) throw new OracleError('too_few_stages', 'The Oracle returned no stages');
 
   const dropped: { place: string; reason: string }[] = [];
@@ -392,8 +541,10 @@ export async function consultOracle(req: OracleRequest, keys: OracleKeys): Promi
     // a same-named place on another continent (it did: "Tokyo Tower" came back 8,800 km away).
     // The radius check below still guards against bbox corners and bad matches.
     const box = bboxAround(destination, FLIGHT_RADIUS_KM);
-    const located = await Promise.all(
-      route.stages.map((s) => geocode(`${s.place_name}, ${s.city_region}`, keys, destination, box)),
+    const located = await mapLimit(
+      route.stages,
+      GEOCODE_CONCURRENCY,
+      (s) => geocode(`${s.place_name}, ${s.city_region}`, keys, destination, box),
     );
     const kept: Candidate[] = [];
     route.stages.forEach((stage, i) => {
@@ -424,8 +575,10 @@ export async function consultOracle(req: OracleRequest, keys: OracleKeys): Promi
     const waypoints = route.stages.slice(0, -1);
 
     const midpoint = { lat: (start.lat + destination.lat) / 2, lng: (start.lng + destination.lng) / 2 };
-    const located = await Promise.all(
-      waypoints.map((s) => geocode(`${s.place_name}, ${s.city_region}`, keys, midpoint)),
+    const located = await mapLimit(
+      waypoints,
+      GEOCODE_CONCURRENCY,
+      (s) => geocode(`${s.place_name}, ${s.city_region}`, keys, midpoint),
     );
     const candidates: Candidate[] = [];
     waypoints.forEach((stage, i) => {
@@ -450,6 +603,15 @@ export async function consultOracle(req: OracleRequest, keys: OracleKeys): Promi
     );
   }
 
+  // Spares beyond the target go, crowded stops first; the final stage always stays.
+  if (all.length > target) {
+    const keep = trimIndices(flight ? destination : start, all, target);
+    const gone = all.filter((_, i) => !keep.includes(i));
+    dropped.push(...gone.map((c) => ({ place: c.stage.place_name, reason: `spare beyond the ${target} wanted` })));
+    names = keep.map((i) => names[i]);
+    all = keep.map((i) => all[i]);
+  }
+
   // A flight earns nothing: its first leg starts at the destination centre.
   const points = pointsForStops(flight ? destination : start, all);
   const stages = all.map((c, i): OracleStage => ({
@@ -463,5 +625,12 @@ export async function consultOracle(req: OracleRequest, keys: OracleKeys): Promi
     points: points[i],
   }));
 
-  return { title: route.title, start, destination, stages, dropped };
+  return {
+    title: route.title,
+    start,
+    destination,
+    stages,
+    dropped,
+    plan: { target, requested, llm_ms: t2 - t1, geocode_ms: Date.now() - t0 - (t2 - t1) },
+  };
 }

@@ -1,18 +1,22 @@
 // Gemini Interactions API call with structured JSON output.
 // Runtime-agnostic (only `fetch`): used by the Edge Functions and Node scratch scripts.
 
-// Two jobs, two models (both served through the same Gemini API).
-//  - Chat: many small turns, so a small fast model.
-//  - Planner: one big structured answer, so the stronger model.
+// Two jobs, one fast model. Measured on the live server (see DEVLOG): the
+// "flash-lite" models answer a 5-stage route in about 2 s with no thinking,
+// where Gemma 4 31B often answered 503 "high demand" (or hung until the
+// timeout) and the thinking models (3.5/3.6 flash) took 10 s or more for the
+// same route with no visible gain in the places chosen.
+//  - Chat and Planner: gemini-3.1-flash-lite.
+//  - Retry: gemini-3.5-flash-lite, a different model so a busy one does not fail the request.
 // Override with the LLM_CHAT_MODEL / LLM_PLANNER_MODEL secrets; the old LLM_MODEL
 // secret still overrides both. See modelFor().
 export const CHAT_MODEL = 'gemini-3.1-flash-lite';
-export const PLANNER_MODEL = 'gemma-4-31b-it';
+export const PLANNER_MODEL = 'gemini-3.1-flash-lite';
+export const BACKUP_MODEL = 'gemini-3.5-flash-lite';
 
-// The one retry each function makes goes to the OTHER model, so a busy one
-// (Gemma often answers 503 "high demand") does not fail the request.
-export const CHAT_FALLBACK_MODEL = PLANNER_MODEL;
-export const PLANNER_FALLBACK_MODEL = CHAT_MODEL;
+// The one retry each function makes goes to the OTHER model.
+export const CHAT_FALLBACK_MODEL = BACKUP_MODEL;
+export const PLANNER_FALLBACK_MODEL = BACKUP_MODEL;
 
 /** Kept for callers that want "the default"; this is the planner model. */
 export const DEFAULT_MODEL = PLANNER_MODEL;
@@ -45,8 +49,27 @@ export interface GeminiKeys {
   model?: string;
   /** Override the API host. Only for tests against a mock server. */
   llmBaseUrl?: string;
-  /** Give up on one call after this long (default 45 s). A hung Gemma otherwise stalls for minutes. */
+  /** Give up on one call after this long (default 30 s). A hung model otherwise stalls for minutes. */
   timeoutMs?: number;
+  /**
+   * `generation_config.thinking_level`. Left out by default (the flash-lite models do not think unless asked).
+   * Not sent to Gemma, which rejects it.
+   */
+  thinkingLevel?: 'minimal' | 'low' | 'medium' | 'high';
+  /** `generation_config.max_output_tokens`, a runaway guard (thinking tokens count too). Not sent to Gemma, which spends it on thinking. */
+  maxOutputTokens?: number;
+}
+
+/** Gemma models take no generation_config here (thinking_level is rejected, and the token cap is eaten by its thinking). */
+const isGemma = (model: string): boolean => model.toLowerCase().startsWith('gemma');
+
+/** The generation_config for a call, or undefined when there is nothing to set. */
+export function generationConfig(model: string, keys: Pick<GeminiKeys, 'thinkingLevel' | 'maxOutputTokens'>) {
+  if (isGemma(model)) return undefined;
+  const cfg: Record<string, unknown> = {};
+  if (keys.thinkingLevel) cfg.thinking_level = keys.thinkingLevel;
+  if (keys.maxOutputTokens) cfg.max_output_tokens = keys.maxOutputTokens;
+  return Object.keys(cfg).length > 0 ? cfg : undefined;
 }
 
 export class GeminiError extends Error {
@@ -95,11 +118,12 @@ export async function askGemini(
   keys: GeminiKeys,
 ): Promise<{ data: unknown; raw: string }> {
   const base = keys.llmBaseUrl ?? 'https://generativelanguage.googleapis.com';
+  const model = keys.model ?? PLANNER_MODEL;
   let res: Response;
   let raw: string;
   try {
     res = await fetch(`${base}/v1beta/interactions`, {
-      signal: AbortSignal.timeout(keys.timeoutMs ?? 45_000),
+      signal: AbortSignal.timeout(keys.timeoutMs ?? 30_000),
       method: 'POST',
       headers: {
         'x-goog-api-key': keys.llmApiKey,
@@ -107,10 +131,11 @@ export async function askGemini(
         'Api-Revision': '2026-05-20',
       },
       body: JSON.stringify({
-        model: keys.model ?? PLANNER_MODEL,
+        model,
         system_instruction: opts.system,
         input: opts.input,
         response_format: { type: 'text', mime_type: 'application/json', schema: opts.schema },
+        generation_config: generationConfig(model, keys),
         store: false,
       }),
     });

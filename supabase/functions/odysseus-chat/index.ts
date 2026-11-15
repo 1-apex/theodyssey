@@ -30,12 +30,14 @@ Deno.serve(async (req) => {
   const messages = parseChatRequest(await req.json().catch(() => null));
   if (typeof messages === 'string') return fail(400, 'invalid_request', messages);
 
+  const startedAt = Date.now();
   try {
     const result = await chatWithOdysseus(messages, {
       llmApiKey,
       model: modelFor('chat', (n) => Deno.env.get(n)),
       llmBaseUrl: Deno.env.get('LLM_BASE_URL') ?? undefined,
     });
+    console.log(`chat ok: ${messages.length} msgs, ${Date.now() - startedAt} ms`);
     return json(result);
   } catch (e) {
     if (e instanceof ChatError) {

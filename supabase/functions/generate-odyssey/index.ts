@@ -142,6 +142,7 @@ Deno.serve(async (req) => {
     return fail(500, 'not_configured', 'The Oracle is not configured');
   }
 
+  const startedAt = Date.now();
   const captainId = await callerId(req, SUPABASE_URL, key);
   if (!captainId) return fail(401, 'not_authenticated', 'Sign in first');
 
@@ -180,6 +181,9 @@ Deno.serve(async (req) => {
       llmBaseUrl: Deno.env.get('LLM_BASE_URL') ?? undefined,
       geocodingBaseUrl: Deno.env.get('GEOCODING_BASE_URL') ?? undefined,
     });
+    console.log(
+      `oracle ok: ${result.stages.length}/${result.plan.target} stages (asked ${result.plan.requested}), llm ${result.plan.llm_ms} ms, geocode ${result.plan.geocode_ms} ms, total ${Date.now() - startedAt} ms`,
+    );
     if (result.dropped.length > 0) console.log('dropped stages', result.dropped);
 
     // 3. Persist. Stages first, so the odyssey only reaches `lobby` with a route.

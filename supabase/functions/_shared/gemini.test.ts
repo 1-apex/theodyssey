@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { CHAT_MODEL, modelFor, parseLenient, PLANNER_MODEL, retryKeys } from './gemini.ts';
+import { BACKUP_MODEL, CHAT_MODEL, generationConfig, modelFor, parseLenient, PLANNER_MODEL, retryKeys } from './gemini.ts';
 
-test('default models: lite for chat, gemma for the planner', () => {
+test('default models: one fast flash-lite for both jobs, a different one for the retry', () => {
   assert.equal(CHAT_MODEL, 'gemini-3.1-flash-lite');
-  assert.equal(PLANNER_MODEL, 'gemma-4-31b-it');
+  assert.equal(PLANNER_MODEL, 'gemini-3.1-flash-lite');
+  assert.equal(BACKUP_MODEL, 'gemini-3.5-flash-lite');
   assert.equal(modelFor('chat', () => undefined), CHAT_MODEL);
   assert.equal(modelFor('planner', () => undefined), PLANNER_MODEL);
 });
@@ -19,16 +20,24 @@ test('modelFor: specific override beats LLM_MODEL, which beats the default', () 
   assert.equal(modelFor('chat', env({ LLM_MODEL: '  ' })), CHAT_MODEL);
 });
 
-test('retryKeys: each job falls back to the other model, always a different one', () => {
-  assert.equal(retryKeys({ model: CHAT_MODEL }, 'chat').model, PLANNER_MODEL);
-  assert.equal(retryKeys({}, 'chat').model, PLANNER_MODEL);
-  assert.equal(retryKeys({ model: PLANNER_MODEL }, 'planner').model, CHAT_MODEL);
-  assert.equal(retryKeys({}, 'planner').model, CHAT_MODEL);
-  assert.equal(retryKeys({ model: CHAT_MODEL }, 'planner').model, PLANNER_MODEL);
-  assert.equal(retryKeys({ model: PLANNER_MODEL }, 'chat').model, CHAT_MODEL);
-  assert.equal(retryKeys({ model: 'custom' }, 'chat').model, PLANNER_MODEL);
-  assert.equal(retryKeys({ model: 'custom' }, 'planner').model, CHAT_MODEL);
+test('retryKeys: the retry is always a different model', () => {
+  for (const job of ['chat', 'planner'] as const) {
+    assert.equal(retryKeys({ model: CHAT_MODEL }, job).model, BACKUP_MODEL);
+    assert.equal(retryKeys({}, job).model, BACKUP_MODEL);
+    assert.equal(retryKeys({ model: BACKUP_MODEL }, job).model, job === 'chat' ? CHAT_MODEL : PLANNER_MODEL);
+    assert.equal(retryKeys({ model: 'gemma-4-31b-it' }, job).model, BACKUP_MODEL);
+  }
   assert.equal(retryKeys({ model: 'm', llmApiKey: 'k' } as { model: string; llmApiKey: string }, 'chat').llmApiKey, 'k');
+});
+
+test('generationConfig: thinking and token cap for Gemini, nothing for Gemma or when unset', () => {
+  assert.deepEqual(generationConfig('gemini-3.1-flash-lite', { thinkingLevel: 'low', maxOutputTokens: 900 }), {
+    thinking_level: 'low',
+    max_output_tokens: 900,
+  });
+  assert.deepEqual(generationConfig('gemini-3.1-flash-lite', { maxOutputTokens: 900 }), { max_output_tokens: 900 });
+  assert.equal(generationConfig('gemini-3.1-flash-lite', {}), undefined);
+  assert.equal(generationConfig('gemma-4-31b-it', { thinkingLevel: 'low', maxOutputTokens: 900 }), undefined);
 });
 
 test('parseLenient accepts fences and chatter around the JSON', () => {

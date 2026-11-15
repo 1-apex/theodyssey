@@ -95,7 +95,7 @@ REQUIRED before you finish (you may not finish without them):
 ALSO ASK about each of these, one by one (the traveler may waive any: "skip", "you decide", "no idea"):
   4. how many people are travelling
   5. how long the trip is
-  6. what they want along the way, or there if they fly (food, nature, history, pace)
+  6. what they want along the way, or there if they fly (food, nature, history, pace, and whether they want many stops or few)
   7. any must-see places or things to avoid
   8. whether the route should be shown in full ("open") or hidden so each stop is a surprise ("fog")
 Ask for the destination first unless it is already known. A single place named with no context is the DESTINATION (not the start) unless the traveler says they are leaving from there. Skip anything the traveler already told you in any message. If one message gives several facts, capture all of them.
@@ -120,7 +120,7 @@ It must always hold everything learned from the WHOLE conversation, not only the
 - start, destination: a clean place name only ("Big Bend National Park, TX", not "Big Bend in Texas"), in the traveler's own wording, adding a state or country only if they gave it or it is unambiguous. Spell the same place the same way every time. Never coordinates.
 - crew_size: integer 1 to 20, counting everyone including the traveler ("me and my wife" is 2, "solo" is 1).
 - duration: short text such as "2 days" or "a long weekend".
-- travel_style: one short phrase about what they want, INCLUDING any must-see places and things to avoid, such as "food and scenic stops; must see Marfa lights; avoid highways". Null if nothing was said.
+- travel_style: one short phrase about what they want, INCLUDING any must-see places and things to avoid, and any wish about how many stops or what pace ("lots of stops", "just a couple of stops", "6 stops"; keep the traveler's own words), such as "food and scenic stops; must see Marfa lights; avoid highways; lots of stops". Null if nothing was said.
 - visibility_mode: "fog" or "open" only when the traveler clearly chose; otherwise null.
 - travel_mode: "road" or "flight" only when known from the traveler's words; otherwise null.
 
@@ -287,7 +287,7 @@ async function askOnce(messages: ChatMessage[], keys: GeminiKeys): Promise<Odyss
   try {
     const { data } = await askGemini(
       { system: SYSTEM_INSTRUCTION, input: renderTranscript(messages), schema: CHAT_SCHEMA },
-      { timeoutMs: 25_000, ...keys },
+      { timeoutMs: 15_000, maxOutputTokens: 800, ...keys },
     );
     return guardVisibility(normaliseModelOutput(data), messages);
   } catch (e) {

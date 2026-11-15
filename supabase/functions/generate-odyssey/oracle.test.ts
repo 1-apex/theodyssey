@@ -1,7 +1,23 @@
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { test } from 'node:test';
-import { bboxAround, consultOracle, dropCoincident, FLIGHT_RADIUS_KM, haversineKm, ITHACA_BONUS, pointsForStops, realName, stagePoints } from './oracle.ts';
+import {
+  bboxAround,
+  chooseStageCount,
+  consultOracle,
+  dropCoincident,
+  FLIGHT_RADIUS_KM,
+  haversineKm,
+  ITHACA_BONUS,
+  mapLimit,
+  parseDays,
+  pointsForStops,
+  realName,
+  stagePoints,
+  stagesForKm,
+  trimIndices,
+  wishedStages,
+} from './oracle.ts';
 
 test('stagePoints: a short leg floors at 50', () => {
   assert.equal(stagePoints(0, false), 50);
@@ -190,4 +206,104 @@ test('bboxAround is a box about radius km around the point, min before max', () 
   const [w, s, e, n] = bboxAround({ lat: 35.6762, lng: 139.6503 }, 60).split(',').map(Number);
   assert.ok(w < 139.6503 && e > 139.6503 && s < 35.6762 && n > 35.6762);
   assert.ok(Math.abs(haversineKm({ lat: s, lng: 139.6503 }, { lat: n, lng: 139.6503 }) - 120) < 2);
+});
+
+test('parseDays reads hours, days, weeks, weekends and words', () => {
+  assert.equal(parseDays('2 days'), 2);
+  assert.equal(parseDays('a long weekend'), 4);
+  assert.equal(parseDays('a weekend'), 3);
+  assert.equal(parseDays('about 2 weeks'), 14);
+  assert.equal(parseDays('a week'), 7);
+  assert.equal(parseDays('ten days'), 10);
+  assert.equal(parseDays('a couple of days'), 2);
+  assert.equal(parseDays('6 hours'), 0.25);
+  assert.equal(parseDays('a day trip'), 1);
+  assert.equal(parseDays('flexible'), null);
+  assert.equal(parseDays(''), null);
+});
+
+test('wishedStages: explicit numbers and pace words, nothing otherwise', () => {
+  assert.deepEqual(wishedStages('food; 6 stops'), { count: 6 });
+  assert.deepEqual(wishedStages('about eight places please'), { count: 8 });
+  assert.deepEqual(wishedStages('just a couple of stops'), { fewer: true });
+  assert.deepEqual(wishedStages('a few stops, mostly food'), { fewer: true });
+  assert.deepEqual(wishedStages('food and forts; lots of stops'), { more: true });
+  assert.deepEqual(wishedStages('as many places as possible'), { more: true });
+  assert.equal(wishedStages('scenic, food stops, no rush'), null);
+  assert.equal(wishedStages(''), null);
+});
+
+test('chooseStageCount: duration and route length decide, the traveller wins, always 3 to 12', () => {
+  const road = (duration: string, travel_style = '', travel_mode: 'road' | 'flight' = 'road') => ({ duration, travel_style, travel_mode });
+  assert.equal(stagesForKm(20), 3);
+  assert.equal(stagesForKm(100000), 12);
+  const short = chooseStageCount(road('a day'), 235);
+  const weekend = chooseStageCount(road('a weekend'), 560);
+  const week = chooseStageCount(road('10 days'), 2000);
+  assert.ok(short <= 4, `a day trip over 235 km is ${short}`);
+  assert.ok(weekend >= 5 && weekend <= 7, `a weekend over 560 km is ${weekend}`);
+  assert.ok(week >= 10, `ten days over 2000 km is ${week}`);
+  assert.ok(short < weekend && weekend < week);
+  assert.equal(chooseStageCount(road('flexible'), 0), 3, 'unknown duration and a tiny route: the route length decides');
+  assert.equal(chooseStageCount(road('flexible', '', 'flight'), 0), 5, 'flight with no duration: the default');
+  assert.equal(chooseStageCount(road('a week', '', 'flight'), 9000), 8, 'a flight ignores the distance');
+  assert.equal(chooseStageCount(road('a weekend', '4 stops'), 560), 4);
+  assert.equal(chooseStageCount(road('a day', '30 stops'), 235), 12);
+  assert.equal(chooseStageCount(road('a week', 'just a couple of stops'), 800), 4);
+  assert.ok(chooseStageCount(road('a weekend', 'lots of stops'), 300) >= 8);
+  assert.equal(chooseStageCount(road('3 months', 'lots of stops'), 5000), 12);
+});
+
+test('trimIndices drops the most crowded interior stops and always keeps the last', () => {
+  const o = { lat: 0, lng: 0 };
+  const stops = [0.1, 0.2, 1, 2, 3].map((lng) => ({ lat: 0, lng })); // the first two sit close together
+  assert.deepEqual(trimIndices(o, stops, 5), [0, 1, 2, 3, 4]);
+  assert.deepEqual(trimIndices(o, stops, 4), [1, 2, 3, 4]);
+  assert.deepEqual(trimIndices(o, stops, 3), [2, 3, 4]);
+  assert.deepEqual(trimIndices(o, stops, 1), [4]);
+});
+
+test('mapLimit keeps order and never runs more than the limit at once', async () => {
+  let active = 0;
+  let peak = 0;
+  const out = await mapLimit([1, 2, 3, 4, 5, 6, 7], 3, async (n) => {
+    active++;
+    peak = Math.max(peak, active);
+    await new Promise((r) => setTimeout(r, 5));
+    active--;
+    return n * 2;
+  });
+  assert.deepEqual(out, [2, 4, 6, 8, 10, 12, 14]);
+  assert.equal(peak, 3);
+  assert.deepEqual(await mapLimit([], 3, async (n: number) => n), []);
+});
+
+test('the Oracle asks for target + 2 stages, then trims to the target keeping Ithaca last', async () => {
+  const m = await mock([
+    ['Buc-ee\'s', 'Temple, TX'], ['Fort Stockton Diner', 'Fort Stockton, TX'], ['Marathon Motel', 'Marathon, TX'], ['Big Bend National Park', 'TX'],
+  ]);
+  try {
+    const r = await consultOracle(
+      { start: 'Arlington, TX', destination: 'Big Bend National Park, TX', crew_size: 2, travel_style: 'just a couple of stops', duration: 'a week' },
+      { llmApiKey: 'k', geocodingApiKey: 'k', llmBaseUrl: m.base, geocodingBaseUrl: m.base },
+    );
+    assert.equal(r.plan.target, 4);
+    assert.equal(r.plan.requested, 6);
+    assert.match(m.requests[0].input, /Stages to return: 6/);
+    assert.equal(r.stages.length, 4, 'four survived and four were wanted');
+    assert.equal(r.stages[r.stages.length - 1].name, 'Big Bend National Park, TX');
+
+    const fewer = await consultOracle(
+      { start: 'Arlington, TX', destination: 'Big Bend National Park, TX', crew_size: 2, travel_style: '3 stops', duration: 'a week' },
+      { llmApiKey: 'k', geocodingApiKey: 'k', llmBaseUrl: m.base, geocodingBaseUrl: m.base },
+    );
+    assert.equal(fewer.stages.length, 3);
+    assert.equal(fewer.stages[2].name, 'Big Bend National Park, TX');
+    assert.equal(fewer.dropped.filter((d) => /spare/.test(d.reason)).length, 1);
+    assert.deepEqual(
+      fewer.stages.map((s) => s.points),
+      pointsForStops(fewer.start, fewer.stages),
+      'points follow the legs that remain',
+    );
+  } finally { m.close(); }
 });

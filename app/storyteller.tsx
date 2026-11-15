@@ -8,7 +8,6 @@ import {
   Text,
   TextInput,
   View,
-  type TextInputContentSizeChangeEvent,
   type TextInputKeyPressEvent,
 } from 'react-native';
 
@@ -29,8 +28,6 @@ import { fonts } from '@/theme/typography';
 
 const INPUT_MIN = sz(46);
 const INPUT_MAX = sz(112);
-/** Vertical padding (8 + 8) and border (3 + 3) around the text. */
-const INPUT_CHROME = sz(16);
 const INPUT_BORDER = sz(6);
 
 /** On web, Enter sends and Shift+Enter starts a new line. */
@@ -85,12 +82,6 @@ export default function Storyteller() {
     setInputHeight(INPUT_MIN);
     setProblem(null);
   };
-
-  const fit = (contentHeight: number) =>
-    setInputHeight(Math.min(INPUT_MAX, Math.max(INPUT_MIN, Math.ceil(contentHeight) + INPUT_CHROME)));
-
-  /** Native: the text box reports its content height. */
-  const onSize = (e: TextInputContentSizeChangeEvent) => fit(e.nativeEvent.contentSize.height);
 
   /**
    * Web: a textarea never reports a smaller content height once it has grown, so measure it
@@ -169,7 +160,6 @@ export default function Storyteller() {
             setInput(text.slice(0, MAX_TEXT)); // pasted text counts too
             fitWeb();
           }}
-          onContentSizeChange={Platform.OS === 'web' ? undefined : onSize}
           onKeyPress={(e) => {
             if (isPlainEnter(e)) {
               e.preventDefault();
@@ -180,7 +170,8 @@ export default function Storyteller() {
           placeholderTextColor="#877a69"
           multiline
           maxLength={MAX_TEXT}
-          style={[styles.input, { height: inputHeight }]}
+          // Native sizes itself between minHeight and maxHeight; a JS-set height lags a frame behind the IME and can clip the word being autocorrected.
+          style={[styles.input, Platform.OS === 'web' && { height: inputHeight }]}
         />
         <Pressable
           accessibilityRole="button"
