@@ -24,7 +24,7 @@ function Home() {
   return (
     <Shell home>
       <Stars />
-      <View style={{ position: 'absolute', top: 8, right: 12 }}>
+      <View style={{ alignItems: 'flex-end', marginTop: 4, marginBottom: 12 }}>
         <HelmButton onPress={() => router.push('/profile')} />
       </View>
       <View style={s.homeTitle}>
