@@ -189,7 +189,7 @@ export const storyteller = {
     'What does your crew seek along the way? Tell me of food, wild places, stories, or anything else.',
   ],
   closing: 'A worthy tale is taking shape. Summon the Oracle below, and she shall chart your course.',
-  scriptedNotice: 'The sea-winds drown out the gods, but I can still hear you. ',
+  scriptedNotice: 'The winds have scattered my words, traveler. ',
   scriptedDone: 'Your tale is ready, traveler. Summon the Oracle below whenever you wish.',
   chatError: 'The winds swallowed my words, traveler. Shall I hear you again?',
   retry: 'Try again',

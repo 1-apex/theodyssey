@@ -102,11 +102,38 @@ test('two failures in a row switch to the script, which asks for the next unknow
   s = receiveFailure(retry(s));
   assert.equal(s.scripted, true);
   assert.equal(s.failed, false);
-  assert.equal(s.trip.destination, 'Big Bend'); // the unanswered message was taken as the destination
+  assert.equal(s.trip.destination, null); // the unanswered message is not taken as an answer
   const last = s.lines[s.lines.length - 1];
   assert.equal(last.role, 'odysseus');
   assert.ok(last.text.startsWith(storyteller.scriptedNotice));
-  assert.ok(last.text.endsWith(storyteller.prompts[0])); // the start harbor
+  assert.ok(last.text.endsWith(storyteller.greeting)); // the first missing field: the destination
+  assert.equal(s.asking, 'destination');
+});
+
+test('a first message with a destination and start is not misfiled by the switch', () => {
+  let s = receiveFailure(sendMessage(ready0(), 'Big Bend from Arlington'));
+  s = receiveFailure(retry(s));
+  assert.deepEqual(s.trip, EMPTY_TRIP);
+  // The next answer fills the field he just asked about.
+  s = scriptedReply(sendMessage(finishTyping(s, s.typingId ?? -1), 'Big Bend'));
+  assert.equal(s.trip.destination, 'Big Bend');
+  assert.equal(s.trip.start, null);
+});
+
+test('ready from the server survives the switch and no new questions are asked', () => {
+  let s = sendMessage(ready0(), 'Goa from Pune');
+  s = receiveReply(s, reply('Shall we sail?', { destination: 'Goa', start: 'Pune' }, true));
+  s = finishTyping(s, s.typingId ?? -1);
+  s = receiveFailure(retry(receiveFailure(sendMessage(s, 'yes'))));
+  assert.equal(s.scripted, true);
+  assert.equal(s.ready, true);
+  assert.equal(s.asking, null);
+  assert.deepEqual(s.trip, { ...EMPTY_TRIP, destination: 'Goa', start: 'Pune' });
+  assert.equal(s.lines[s.lines.length - 1].text, storyteller.scriptedNotice + storyteller.scriptedDone);
+  s = scriptedReply(sendMessage(finishTyping(s, s.typingId ?? -1), '3 of us'));
+  assert.equal(s.ready, true);
+  assert.equal(s.trip.crew_size, null);
+  assert.equal(s.lines[s.lines.length - 1].text, storyteller.scriptedDone);
 });
 
 test('a success between failures resets the count', () => {
@@ -120,6 +147,7 @@ test('a success between failures resets the count', () => {
 
 test('the script runs destination, start, crew, duration, wishes, then becomes ready', () => {
   let s = receiveFailure(retry(receiveFailure(sendMessage(ready0(), 'Big Bend'))));
+  s = scriptedReply(sendMessage(finishTyping(s, s.typingId ?? -1), 'Big Bend'));
   const answers = ['Arlington, TX', '4 of us', '2 days', 'tacos and views'];
   const asked: string[] = [];
   for (const a of answers) {
@@ -150,12 +178,13 @@ test('the script skips what the server already learned', () => {
   s = receiveReply(s, reply('And how long?', { destination: 'Goa', start: 'Pune', crew_size: 3 }));
   s = finishTyping(s, s.typingId ?? -1);
   s = receiveFailure(retry(receiveFailure(sendMessage(s, '5 days'))));
-  assert.equal(s.trip.duration, '5 days'); // answered the next unknown
-  assert.ok(s.lines[s.lines.length - 1].text.endsWith(storyteller.prompts[3]));
+  assert.equal(s.trip.duration, null); // the failed message is not an answer
+  assert.ok(s.lines[s.lines.length - 1].text.endsWith(storyteller.prompts[2])); // the duration
 });
 
 test('an unreadable head count is not asked again', () => {
   let s = receiveFailure(retry(receiveFailure(sendMessage(ready0(), 'Goa'))));
+  s = scriptedReply(sendMessage(finishTyping(s, s.typingId ?? -1), 'Goa'));
   s = scriptedReply(sendMessage(finishTyping(s, s.typingId ?? -1), 'Pune'));
   s = scriptedReply(sendMessage(finishTyping(s, s.typingId ?? -1), 'a few'));
   assert.equal(s.trip.crew_size, null);

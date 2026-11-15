@@ -100,7 +100,16 @@ export function receiveFailure(s: ChatState): ChatState {
   if (!s.waiting || s.scripted) return s;
   const failures = s.failures + 1;
   if (failures < FAILURES_BEFORE_SCRIPT) return { ...s, waiting: false, failed: true, failures };
-  return advanceScript({ ...s, scripted: true, failures, failed: false, asking: nextField(s.trip, s.asked) }, copy.scriptedNotice);
+  // The traveler's last message answered whatever the server-side Odysseus asked, so it is not
+  // taken as an answer here. He says the winds scattered his words and asks the first missing field.
+  const base = { ...s, scripted: true, failures, failed: false, waiting: false };
+  if (s.ready) {
+    return { ...append(base, 'odysseus', copy.scriptedNotice + copy.scriptedDone), asking: null, typingId: s.nextId };
+  }
+  const field = nextField(s.trip, s.asked);
+  const ready = field === null && s.trip.destination !== null && s.trip.start !== null;
+  const text = field !== null ? scriptQuestion(field) : copy.scriptedDone;
+  return { ...append(base, 'odysseus', copy.scriptedNotice + text), asking: field, ready, typingId: s.nextId };
 }
 
 /** Scripted mode: Odysseus answers locally after the traveler's message. */
@@ -112,6 +121,10 @@ export function scriptedReply(s: ChatState): ChatState {
 /** Takes the traveler's last message as the answer to what was asked, then asks for the next unknown. */
 function advanceScript(s: ChatState, prefix: string): ChatState {
   let { trip, asked } = s;
+  if (s.ready && s.asking === null) {
+    const next = append(s, 'odysseus', prefix + copy.scriptedDone);
+    return { ...next, waiting: false, typingId: s.nextId };
+  }
   const answer = [...s.lines].reverse().find((l) => l.role === 'traveler');
   if (s.asking !== null && answer) {
     trip = applyAnswer(trip, s.asking, answer.text);
