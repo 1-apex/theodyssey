@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { View } from 'react-native';
 
 import { Avatars, Bar, Button, Choices, Input, Label, Shell, T, s } from '@/components/ui';
+import { useAuth } from '@/features/auth/AuthProvider';
 import { ApiError, avatarId, createDemoOdyssey, createOdyssey, joinOdyssey, toApiError } from '@/features/odyssey/api';
 import type { PointsMode, VisibilityMode } from '@/lib/types';
 import { app, c } from '@/theme/copy';
@@ -15,7 +16,9 @@ export default function Create() {
   const [start, setStart] = useState('');
   const [destination, setDestination] = useState('');
   const [prompt, setPrompt] = useState(c.example);
-  const [name, setName] = useState('');
+  // The nickname starts as the player's username; they can still change it for this crew.
+  const { username } = useAuth();
+  const [name, setName] = useState(username ?? '');
   const [avatar, setAvatar] = useState(0);
   const [visibility, setVisibility] = useState<VisibilityMode>('fog');
   const [pointsMode, setPointsMode] = useState<PointsMode>('crew');

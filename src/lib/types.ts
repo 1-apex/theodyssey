@@ -52,6 +52,13 @@ export interface Member {
   joined_at: string;
 }
 
+/** One signed-in player. `id` is the Supabase auth user id; `username` is unique and lowercase. */
+export interface Profile {
+  id: string;
+  username: string;
+  created_at: string;
+}
+
 export interface LedgerEntry {
   id: string;
   odyssey_id: string;

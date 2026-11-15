@@ -78,6 +78,31 @@ export const c = {shipLabel:'Your ship',harbor:'Dallas, TX',
 // Strings added when the screens were connected to the backend.
 // ---------------------------------------------------------------------------
 export const app = {
+  // The start page: one username and password for the whole app.
+  auth: {
+    line: 'Every road trip is an epic.\nTell us who sails.',
+    usernameLabel: 'YOUR NAME',
+    usernamePlaceholder: 'e.g. odysseus',
+    usernameHint: '3 to 20 letters, numbers or _. New names are claimed on the spot.',
+    passwordLabel: 'PASSWORD',
+    passwordPlaceholder: 'At least 6 characters',
+    enter: '⚓ Board the ship',
+    entering: 'Boarding...',
+    cloudsSignIn: 'THE CLOUDS GATHER...',
+    signedInAs: (username: string) => `Sailing as ${username}`,
+    signOut: 'Leave the ship (sign out)',
+    cloudsSignOut: 'RETURNING TO HARBOR...',
+    errors: {
+      invalid_username: 'Names are 3 to 20 characters: letters, numbers or underscore.',
+      weak_password: 'The password needs at least 6 characters.',
+      wrong_password: 'That name is already taken, and the password does not match it.',
+      signups_closed: 'New sailors cannot sign up yet. The server is not set up for it.',
+      not_configured:
+        'The app is not connected to Supabase. Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY in .env and restart.',
+      network: 'Could not reach the server. Check your connection.',
+      unknown: 'Something went wrong. Try again.',
+    },
+  },
   startLabel: 'SETTING SAIL FROM',
   startPlaceholder: 'e.g. Arlington, TX',
   destinationLabel: 'BOUND FOR (ITHACA)',
