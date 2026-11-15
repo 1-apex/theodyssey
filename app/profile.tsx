@@ -16,6 +16,7 @@ export default function Profile() {
   const { username, avatar, chooseAvatar } = useAuth();
   const curtain = useCloudCurtain();
   const [result, setResult] = useState<Saving>('idle');
+  const [signOutError, setSignOutError] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(
@@ -38,9 +39,15 @@ export default function Profile() {
   };
 
   const signOut = async () => {
+    setSignOutError(false);
     await curtain.close(app.auth.cloudsSignOut);
-    await leave();
-    await curtain.open();
+    try {
+      await leave();
+    } catch {
+      setSignOutError(true);
+    } finally {
+      await curtain.open();
+    }
   };
 
   return (
@@ -60,6 +67,11 @@ export default function Profile() {
       <T accessibilityRole="button" onPress={() => void signOut()} style={[s.hint, { textDecorationLine: 'underline', marginTop: 24 }]}>
         {app.auth.signOut}
       </T>
+      {signOutError && (
+        <T accessibilityLiveRegion="polite" style={[s.hint, { color: '#cc2827', marginTop: 8 }]}>
+          {app.errors.unknown}
+        </T>
+      )}
     </Shell>
   );
 }

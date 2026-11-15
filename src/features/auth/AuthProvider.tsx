@@ -1,7 +1,7 @@
 // Who is playing. Wraps the whole app; screens read it with useAuth().
 
 import type { Session } from '@supabase/supabase-js';
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { supabase } from '../../lib/supabase';
 
@@ -42,6 +42,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [chosen, setChosen] = useState<{ userId: string; index: number } | null>(null);
   const userId = state.userId;
   const avatar = chosen !== null && chosen.userId === userId ? chosen.index : 0;
+  // Counts the player's choices, so a late profile load or a late failure can tell it is out of date.
+  const choiceCount = useRef(0);
+  // The last avatar known to be saved on the server for this user; null until known.
+  const savedAvatar = useRef<number | null>(null);
+  const avatarRef = useRef(avatar);
+  useEffect(() => {
+    avatarRef.current = avatar;
+  }, [avatar]);
 
   useEffect(() => {
     let active = true;
@@ -64,8 +72,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Load the saved avatar whenever someone signs in; reset it when they leave.
   useEffect(() => {
+    savedAvatar.current = null;
     if (userId === null) return;
     let active = true;
+    const choicesAtStart = choiceCount.current;
     supabase
       .from('profiles')
       .select('avatar_id')
@@ -74,7 +84,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then(
         ({ data }) => {
           const match = typeof data?.avatar_id === 'string' ? AVATAR_PATTERN.exec(data.avatar_id) : null;
-          if (active && match) setChosen({ userId, index: Number(match[1]) });
+          if (!active || !match) return;
+          savedAvatar.current = Number(match[1]);
+          // Do not overwrite an avatar the player picked while this was loading.
+          if (choiceCount.current === choicesAtStart) setChosen({ userId, index: Number(match[1]) });
         },
         () => {
           // Keep the default; the profile screen shows it and saving still works.
@@ -89,17 +102,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (index: number) => {
       if (!Number.isInteger(index) || index < 0 || index >= AVATAR_COUNT) throw new Error('invalid_avatar');
       if (userId === null) throw new Error('not_authenticated');
-      const previous = avatar;
+      const previous = avatarRef.current;
+      if (savedAvatar.current === null) savedAvatar.current = previous;
+      const mine = ++choiceCount.current;
       setChosen({ userId, index });
       try {
         const { error } = await supabase.rpc('set_my_avatar', { p_avatar_id: `avatar_${index}` });
         if (error) throw new Error(error.message);
+        savedAvatar.current = index;
       } catch (e) {
-        setChosen({ userId, index: previous });
+        // Only undo our own choice, and go back to what the server last confirmed.
+        if (choiceCount.current === mine) setChosen({ userId, index: savedAvatar.current ?? previous });
         throw e instanceof Error ? e : new Error('unknown');
       }
     },
-    [avatar, userId],
+    [userId],
   );
 
   const value = useMemo<AuthState>(() => ({ ...state, avatar, chooseAvatar }), [state, avatar, chooseAvatar]);
